@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scoreboard · wez-html KV demo</title>
+<style>
+  :root { --fg:#111; --muted:#555; --line:#e4e4e7; --accent:#dc2626; --soft:#fafafa; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif; color:var(--fg); background:#fff; line-height:1.6; }
+  .wrap { max-width:640px; margin:0 auto; padding:32px 20px; }
+  h1 { font-family:"SF Mono",monospace; font-size:24px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 24px; }
+  form { display:flex; gap:8px; margin:16px 0; }
+  input { flex:1; padding:8px 10px; border:1px solid var(--line); border-radius:4px; font:inherit; font-size:14px; }
+  input[type=number] { flex:0 0 90px; }
+  button { padding:8px 14px; background:var(--fg); color:#fff; border:none; border-radius:4px; cursor:pointer; font:inherit; }
+  button.del { background:#fff; color:var(--accent); border:1px solid var(--accent); padding:4px 10px; font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); }
+  th { background:var(--soft); font-size:12px; color:var(--muted); text-transform:uppercase; }
+  .empty { text-align:center; color:var(--muted); padding:40px 0; }
+  #status { margin-top:10px; font-size:13px; color:var(--accent); min-height:18px; }
+  footer { margin-top:32px; font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; }
+  code { background:var(--soft); border:1px solid var(--line); padding:1px 5px; border-radius:3px; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏆 Scoreboard</h1>
+  <p class="sub">demo:用 <code>wez-html KV CRUD</code> 存的記分板。資料活在 <code>/api/kv/</code>,跟著站台一起過期。</p>
+
+  <form id="addForm">
+    <input id="player" placeholder="選手名稱" maxlength="40" required>
+    <input id="score" type="number" placeholder="分數" required>
+    <button type="submit">新增</button>
+  </form>
+  <div id="status"></div>
+
+  <table>
+    <thead><tr><th>選手</th><th>分數</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div id="empty" class="empty" style="display:none">還沒有紀錄。上面新增一筆。</div>
+
+  <footer>
+    storage: <code id="kvUrl"></code><br>
+    這頁面 + 資料整套在 <code>wez_upload_html ./scoreboard you</code> 之後可以直接玩。
+  </footer>
+</div>
+
+<script>
+// KV endpoint 是當前站台的 /api/kv/
+// 例如部署成 /kvdemo/ → KV 在 /kvdemo/api/kv/
+const SITE_ROOT = location.pathname.replace(/\/[^/]*$/, '/');  // 砍掉檔名,留斜線
+const KV = SITE_ROOT + 'api/kv';
+document.getElementById('kvUrl').textContent = KV;
+
+const $ = id => document.getElementById(id);
+const status = msg => { $('status').textContent = msg; setTimeout(() => $('status').textContent = '', 2500); };
+
+async function load() {
+  const res = await fetch(KV);
+  if (!res.ok) { status('讀取失敗 HTTP ' + res.status); return; }
+  const { keys } = await res.json();
+  // 平行抓所有 value
+  const entries = await Promise.all(keys.map(async k => {
+    const r = await fetch(KV + '/' + k.key);
+    return { key: k.key, value: r.ok ? await r.json() : null };
+  }));
+  entries.sort((a, b) => (b.value?.score ?? 0) - (a.value?.score ?? 0));
+  const rows = $('rows');
+  rows.innerHTML = '';
+  $('empty').style.display = entries.length ? 'none' : 'block';
+  for (const { key, value } of entries) {
+    if (!value) continue;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escape(value.player)}</td><td>${value.score}</td><td><button class="del" data-k="${key}">刪</button></td>`;
+    rows.appendChild(tr);
+  }
+}
+
+function escape(s) {
+  return String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+
+$('addForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const player = $('player').value.trim();
+  const score = Number($('score').value);
+  if (!player) return;
+  // key 用 timestamp + random,避免撞名
+  const key = 'r-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+  const res = await fetch(KV + '/' + key, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ player, score })
+  });
+  if (res.ok) {
+    $('player').value = ''; $('score').value = '';
+    load();
+  } else {
+    const j = await res.json().catch(() => ({}));
+    status('新增失敗:' + (j.error || res.status));
+  }
+});
+
+$('rows').addEventListener('click', async e => {
+  const btn = e.target.closest('button.del');
+  if (!btn) return;
+  const key = btn.dataset.k;
+  if (!confirm('刪掉這筆?')) return;
+  const res = await fetch(KV + '/' + key, { method: 'DELETE' });
+  if (res.ok) load();
+  else status('刪除失敗 HTTP ' + res.status);
+});
+
+load();
+</script>
+</body>
+</html>

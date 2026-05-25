@@ -29,7 +29,7 @@ $ wez_upload_html ./frontend yc
 |---|---|
 | 內網 demo / poc / 個人賽作品分享 | Production hosting |
 | 短期(< 半年)的 landing / 投影片 | 需要長期穩定 URL |
-| 純靜態檔(html/css/js/圖) | 要接 DB / 後端 API(等 v2) |
+| 純靜態檔 + 輕量 CRUD(KV JSON) | 關聯式 query / 複雜 schema(等 v2 Datasette) |
 | 內網信任環境(VPN / 辦公室 LAN) | 公網開放(沒驗證、純 identity 追溯) |
 
 ## 兩種上傳方式
@@ -86,6 +86,59 @@ make deploy WEZ_HOST=myserver WEZ_USER=ubuntu GOARCH=arm64
 - 該 user 在 host 上有 `sudo` 權限(裝 binary + systemd unit)
 - 目標機器架構對應 `GOARCH`(預設 `arm64`,x86 機改 `amd64`)
 
+## KV CRUD(v1.1+)
+
+每個站台都附一份輕量 JSON key-value store,給你的前端拿來存「demo 等級」的資料(scoreboard / 留言版 / poll 投票 / 設定持久化⋯)。
+
+### Endpoints
+
+```
+GET    /<site>/api/kv           # list 所有 key + size
+GET    /<site>/api/kv/<key>     # 讀一個 key (回原始 JSON)
+PUT    /<site>/api/kv/<key>     # 寫(body 必須是合法 JSON)
+DELETE /<site>/api/kv/<key>     # 刪
+```
+
+key 規則 `^[a-zA-Z0-9_-]{1,64}$`,value 必須是合法 JSON。
+
+### 從前端用
+
+```js
+const KV = '/' + location.pathname.split('/')[1] + '/api/kv';
+
+// 寫
+await fetch(KV + '/score-1', {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ player: 'Alice', score: 42 }),
+});
+
+// 讀
+const data = await (await fetch(KV + '/score-1')).json();
+
+// 列出
+const { keys } = await (await fetch(KV)).json();
+
+// 刪
+await fetch(KV + '/score-1', { method: 'DELETE' });
+```
+
+### 限制
+
+- value ≤ 256KB
+- 一站最多 1000 keys / 10MB 總量
+- **沒 transaction、沒 query、沒 auth** — 同站台的人都讀寫得到。要鎖等 v2
+- 資料活在 `<siteDir>/.data/<key>.json`,site 過期 reaper 整包刪掉,KV 跟著走
+
+### 範例
+
+`examples/scoreboard/` 是一頁完整的 CRUD demo(記分板,UI + KV 全包)。
+
+```bash
+wez_upload_html ./examples/scoreboard yc --name scoreboard
+# 開 http://your-server:8090/scoreboard/ 直接玩
+```
+
 ## 架構
 
 - **Go single binary**(`wez-html-server` + `wez_upload_html` CLI),systemd 跑著
@@ -101,7 +154,8 @@ make deploy WEZ_HOST=myserver WEZ_USER=ubuntu GOARCH=arm64
 │   └── server/      # wez-html-server
 ├── internal/
 │   ├── archive/     # tar.gz pack/unpack with size/path limits
-│   ├── handler/     # HTTP routes
+│   ├── handler/     # HTTP routes (含 KV CRUD)
+│   ├── kv/          # 站台級 JSON key-value store
 │   ├── meta/        # .meta.json read/write
 │   ├── reaper/      # TTL sweeper
 │   └── web/         # 內嵌 index.html template (embed.FS)

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/yanchen184/wez-html/internal/archive"
+	"github.com/yanchen184/wez-html/internal/kv"
 	"github.com/yanchen184/wez-html/internal/meta"
 )
 
@@ -372,6 +373,107 @@ func (s *Server) extendSite(w http.ResponseWriter, r *http.Request, site string)
 	})
 }
 
+// siteKV: 站台級 KV CRUD。
+//   subpath="" 或 "/"           → GET list
+//   subpath="/<key>"            → GET / PUT / DELETE
+func (s *Server) siteKV(w http.ResponseWriter, r *http.Request, site, siteDir, subpath string) {
+	subpath = strings.TrimPrefix(subpath, "/")
+	// CORS for browser fetch from same origin (內網信任,放寬一點方便嵌入別處)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(204)
+		return
+	}
+
+	// LIST: GET /<site>/api/kv  /  GET /<site>/api/kv/
+	if subpath == "" {
+		if r.Method != http.MethodGet {
+			writeErr(w, 405, "use GET to list keys")
+			return
+		}
+		entries, err := kv.List(siteDir)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		var total int64
+		for _, e := range entries {
+			total += e.SizeBytes
+		}
+		writeJSON(w, 200, map[string]any{
+			"site":             site,
+			"keys":             entries,
+			"count":            len(entries),
+			"total_size_bytes": total,
+			"limits": map[string]any{
+				"max_value_size_bytes": kv.MaxValueSize,
+				"max_keys":             kv.MaxKeys,
+				"max_total_size_bytes": kv.MaxTotalSize,
+			},
+		})
+		return
+	}
+
+	// 不允許巢狀 path
+	if strings.Contains(subpath, "/") {
+		writeErr(w, 400, "nested keys not supported (use flat key names)")
+		return
+	}
+	key := subpath
+	if !kv.KeyRe.MatchString(key) {
+		writeErr(w, 400, "key must match ^[a-zA-Z0-9_-]{1,64}$")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		b, err := kv.Get(siteDir, key)
+		if err != nil {
+			if errors.Is(err, kv.ErrNotFound) {
+				writeErr(w, 404, "key not found")
+				return
+			}
+			writeErr(w, 500, err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(b)
+	case http.MethodPut:
+		n, err := kv.Put(siteDir, key, r.Body)
+		if err != nil {
+			switch {
+			case errors.Is(err, kv.ErrBadJSON):
+				writeErr(w, 400, "body must be valid JSON")
+			case errors.Is(err, kv.ErrValueTooBig):
+				writeErr(w, 413, fmt.Sprintf("value too big (max %d bytes)", kv.MaxValueSize))
+			case errors.Is(err, kv.ErrTooManyKeys):
+				writeErr(w, 409, fmt.Sprintf("site exceeded %d keys", kv.MaxKeys))
+			case errors.Is(err, kv.ErrSiteFull):
+				writeErr(w, 409, fmt.Sprintf("site exceeded %d bytes total", kv.MaxTotalSize))
+			default:
+				writeErr(w, 500, err.Error())
+			}
+			return
+		}
+		writeJSON(w, 200, map[string]any{"status": "ok", "key": key, "size_bytes": n})
+	case http.MethodDelete:
+		if err := kv.Delete(siteDir, key); err != nil {
+			if errors.Is(err, kv.ErrNotFound) {
+				writeErr(w, 404, "key not found")
+				return
+			}
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 200, map[string]any{"status": "deleted", "key": key})
+	default:
+		writeErr(w, 405, "method not allowed (GET/PUT/DELETE only)")
+	}
+}
+
 type siteSummary struct {
 	Name       string    `json:"name"`
 	Uploader   string    `json:"uploader"`
@@ -397,14 +499,15 @@ func (s *Server) collectSites() []siteSummary {
 		if err != nil {
 			continue
 		}
+		total := m.SizeBytes + kv.TotalSize(filepath.Join(s.Root, e.Name()))
 		out = append(out, siteSummary{
 			Name:       m.Site,
 			Uploader:   m.Uploader,
 			UploadedAt: m.UploadedAt,
 			ExpiresAt:  m.ExpiresAt,
 			DaysLeft:   m.DaysLeft(),
-			SizeBytes:  m.SizeBytes,
-			SizeHuman:  humanize(m.SizeBytes),
+			SizeBytes:  total,
+			SizeHuman:  humanize(total),
 			URL:        "/" + m.Site + "/",
 		})
 	}
@@ -479,8 +582,18 @@ func (s *Server) serveSite(w http.ResponseWriter, r *http.Request) {
 	if len(parts) == 2 {
 		rest = parts[1]
 	}
-	// v2 預留:/<site>/api/* 一律 404
+	// /<site>/api/kv/...  → 站台級 KV CRUD (v1.1)
+	if rest == "api/kv" || rest == "api/kv/" || strings.HasPrefix(rest, "api/kv/") {
+		s.siteKV(w, r, site, siteDir, strings.TrimPrefix(rest, "api/kv"))
+		return
+	}
+	// 其他 /<site>/api/* 預留給未來(v2 Datasette 之類)
 	if strings.HasPrefix(rest, "api/") || rest == "api" {
+		http.NotFound(w, r)
+		return
+	}
+	// .data/ 內部不對外
+	if rest == kv.DataDirName || strings.HasPrefix(rest, kv.DataDirName+"/") {
 		http.NotFound(w, r)
 		return
 	}
