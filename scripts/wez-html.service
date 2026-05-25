@@ -1,0 +1,26 @@
+[Unit]
+Description=wez-html internal static site service
+After=network.target
+
+# 部署前請改下面三個值:
+#   User              = 跑 service 的 OS 帳號(避免用 root)
+#   WorkingDirectory  = 該帳號的 home(或任何可讀寫的目錄)
+#   --public-url      = 同事在瀏覽器看到的對外 URL(內網 IP / domain 都行)
+#
+# 預設值僅供範例,別直接照抄。
+
+[Service]
+Type=simple
+User=CHANGE_ME
+WorkingDirectory=/home/CHANGE_ME
+ExecStart=/usr/local/bin/wez-html-server \
+  --listen 0.0.0.0:8090 \
+  --root /var/lib/wez-html \
+  --public-url http://CHANGE_ME:8090
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

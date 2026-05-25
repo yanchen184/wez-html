@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wez-html · 內網靜態站台</title>
+<style>
+  :root { --fg:#111; --muted:#555; --line:#e4e4e7; --bg:#fff; --accent:#dc2626; --soft:#fafafa; --warn:#f59e0b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; color:var(--fg); background:var(--bg); line-height:1.6; font-size:15px; }
+  .wrap { max-width:1100px; margin:0 auto; padding:32px clamp(16px,4vw,32px); }
+  header { border-bottom:2px solid var(--fg); padding-bottom:16px; margin-bottom:24px; }
+  h1 { font-family:"SF Mono","Menlo",monospace; font-size:28px; margin:0 0 6px; letter-spacing:-0.01em; }
+  .sub { color:var(--muted); font-size:14px; margin:0; }
+  .sub code, code.inline { background:var(--soft); border:1px solid var(--line); padding:1px 6px; border-radius:3px; font-family:"SF Mono",monospace; font-size:13px; }
+  .stats { display:flex; gap:24px; margin-top:12px; font-size:13px; color:var(--muted); }
+  .stats b { color:var(--fg); }
+
+  section { margin: 28px 0; }
+  h2 { font-size:18px; margin:0 0 12px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:var(--soft); font-weight:600; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; }
+  td.site a { color:var(--accent); text-decoration:none; font-weight:600; font-family:"SF Mono",monospace; }
+  td.site a:hover { text-decoration:underline; }
+  td.mono { font-family:"SF Mono",monospace; color:var(--muted); white-space:nowrap; font-size:13px; }
+  td.actions { white-space:nowrap; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; font-family:"SF Mono",monospace; }
+  .pill.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+  .pill.warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .pill.danger { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+
+  button.act { font-family:inherit; font-size:12px; padding:4px 10px; border-radius:4px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--fg); }
+  button.act:hover { background:var(--soft); }
+  button.danger { border-color:var(--accent); color:var(--accent); }
+  button.danger:hover { background:#fef2f2; }
+
+  .upload-box { border:2px dashed var(--line); border-radius:8px; padding:20px; background:var(--soft); }
+  .upload-box.drag { border-color:var(--accent); background:#fef2f2; }
+  .upload-form { display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; margin-top:12px; align-items:end; }
+  .upload-form label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .upload-form input { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:4px; font-size:13px; font-family:inherit; }
+  .upload-form button[type=submit] { padding:10px 16px; background:var(--fg); color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:inherit; }
+  .upload-form button[type=submit]:hover { background:#000; }
+  .drop-hint { color:var(--muted); font-size:14px; text-align:center; padding:10px 0; }
+  .drop-hint b { color:var(--fg); font-family:"SF Mono",monospace; }
+  #fileInfo { font-size:13px; color:var(--accent); margin-top:8px; font-family:"SF Mono",monospace; min-height:18px; }
+  #status { margin-top:12px; font-size:13px; font-family:"SF Mono",monospace; padding:8px 12px; border-radius:4px; display:none; }
+  #status.ok { display:block; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+  #status.err { display:block; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+
+  details.help { margin-top:12px; font-size:13px; color:var(--muted); }
+  details.help summary { cursor:pointer; }
+  details.help pre { background:#0b0b0c; color:#e4e4e7; padding:12px; border-radius:4px; font-size:12px; overflow-x:auto; }
+
+  .empty { padding:40px; text-align:center; color:var(--muted); background:var(--soft); border-radius:8px; }
+
+  footer { margin-top:40px; color:var(--muted); font-size:12px; padding-top:16px; border-top:1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>wez-html · 內網靜態站台</h1>
+    <p class="sub">用 <code>/wez_upload_html</code> 或下方拖檔上傳。每站預設 30 天,可設 1–180 天。過期自動下架。</p>
+    <div class="stats">
+      <div>共 <b>{{.Total}}</b> 站</div>
+      <div>總用量 <b>{{.TotalSize}}</b></div>
+      <div>{{.Version}} · {{.GeneratedAt}}</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>拖檔上傳</h2>
+    <div class="upload-box" id="dropZone">
+      <div class="drop-hint">
+        拖 <b>.html</b> 單檔、或 <b>.tar.gz</b> 整包到這裡;也可手選檔案。
+        <input type="file" id="fileInput" accept=".html,.htm,.tar.gz,.tgz,text/html,application/gzip" style="display:block; margin:10px auto;">
+        <div id="fileInfo"></div>
+      </div>
+      <form class="upload-form" id="uploadForm">
+        <div>
+          <label for="siteInput">Site name (a–z, 0–9, -)</label>
+          <input type="text" id="siteInput" placeholder="my-demo" pattern="[a-z0-9-]{1,40}" required>
+        </div>
+        <div>
+          <label for="identityInput">你是誰 (英文/工號)</label>
+          <input type="text" id="identityInput" placeholder="yc" pattern="[a-zA-Z0-9_-]{1,20}" required>
+        </div>
+        <div>
+          <label for="ttlInput">TTL 天數 (1–180)</label>
+          <input type="number" id="ttlInput" min="1" max="180" value="30" required>
+        </div>
+        <div>
+          <label><input type="checkbox" id="forceInput"> 強制覆蓋(撞名時)</label>
+        </div>
+        <div></div>
+        <div>
+          <button type="submit">上傳</button>
+        </div>
+      </form>
+      <div id="status"></div>
+      <details class="help">
+        <summary>偏好 CLI?用 <code class="inline">/wez_upload_html</code></summary>
+<pre>$ /wez_upload_html ./個人賽.html yc           # 單檔自動包成資料夾
+$ /wez_upload_html ./frontend yc
+$ /wez_upload_html ./frontend bob --ttl 90
+$ /wez_upload_html ./frontend yc --force
+$ /wez_upload_html --delete my-demo yc
+$ /wez_upload_html --extend my-demo yc --ttl 60</pre>
+      </details>
+    </div>
+  </section>
+
+  <section>
+    <h2>目前的站台</h2>
+    {{if .Sites}}
+    <table>
+      <thead>
+        <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>到期</th><th>大小</th><th>動作</th></tr>
+      </thead>
+      <tbody>
+      {{range .Sites}}
+        <tr data-site="{{.Name}}">
+          <td class="site"><a href="/{{.Name}}/" target="_blank">{{.Name}}</a></td>
+          <td class="mono">{{.Uploader}}</td>
+          <td class="mono">{{.UploadedAt.Format "01-02 15:04"}}</td>
+          <td>
+            {{if lt .DaysLeft 7}}<span class="pill danger">{{.DaysLeft}}d</span>
+            {{else if lt .DaysLeft 14}}<span class="pill warn">{{.DaysLeft}}d</span>
+            {{else}}<span class="pill ok">{{.DaysLeft}}d</span>{{end}}
+          </td>
+          <td class="mono">{{.SizeHuman}}</td>
+          <td class="actions">
+            <button class="act" onclick="extendSite('{{.Name}}','{{.Uploader}}')">+30d</button>
+            <button class="act danger" onclick="deleteSite('{{.Name}}','{{.Uploader}}')">刪除</button>
+          </td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">還沒有站台。用上方拖檔或 <code class="inline">/wez_upload_html</code> 上傳第一個。</div>
+    {{end}}
+  </section>
+
+  <footer>
+    wez-html {{.Version}} · 內部 demo 平台 · 不適合 production hosting · 來源 <code class="inline">github.com/yanchen184/wez-html</code>
+  </footer>
+</div>
+
+<script>
+const dz = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const form = document.getElementById('uploadForm');
+const statusBox = document.getElementById('status');
+let pickedFile = null;
+
+['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
+
+dz.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) setFile(fileInput.files[0]);
+});
+
+function setFile(f) {
+  pickedFile = f;
+  const isHtml = /\.(html|htm)$/i.test(f.name);
+  const isTar  = /\.(tar\.gz|tgz)$/i.test(f.name);
+  const mark = isHtml ? '✓ 單檔模式 · ' : (isTar ? '✓ tar.gz · ' : '⚠ 只接受 .html / .tar.gz · ');
+  fileInfo.textContent = mark + f.name + ' (' + humanSize(f.size) + ')';
+  const guess = f.name
+    .replace(/\.(tar\.gz|tgz|html|htm)$/i, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (!document.getElementById('siteInput').value && guess) {
+    document.getElementById('siteInput').value = guess.slice(0, 40);
+  }
+}
+
+function humanSize(n) {
+  if (n < 1024) return n + 'B';
+  const u = ['K','M','G']; let i=-1;
+  do { n/=1024; i++; } while (n >= 1024 && i < u.length-1);
+  return n.toFixed(1) + u[i];
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!pickedFile) { showStatus('err', '先選或拖一個 .html 或 .tar.gz'); return; }
+  const isHtml = /\.(html|htm)$/i.test(pickedFile.name);
+  const isTar  = /\.(tar\.gz|tgz)$/i.test(pickedFile.name);
+  if (!isHtml && !isTar) {
+    showStatus('err', '⛔ 只接受 .html / .tar.gz · 你給的: ' + pickedFile.name);
+    return;
+  }
+  const fd = new FormData();
+  if (isHtml) {
+    fd.append('file', pickedFile);
+  } else {
+    fd.append('archive', pickedFile);
+  }
+  fd.append('site', document.getElementById('siteInput').value.trim());
+  fd.append('identity', document.getElementById('identityInput').value.trim());
+  fd.append('ttl', document.getElementById('ttlInput').value);
+  fd.append('force', document.getElementById('forceInput').checked ? '1' : '0');
+  showStatus('ok', '上傳中...');
+  try {
+    const endpoint = isHtml ? '/api/upload-single' : '/api/upload';
+    const res = await fetch(endpoint, { method:'POST', body:fd });
+    const j = await res.json();
+    if (res.ok) {
+      showStatus('ok', '✓ 完成 · ' + j.url);
+      setTimeout(() => location.reload(), 1200);
+    } else if (res.status === 409) {
+      showStatus('err', '⛔ 撞名(現有 uploader=' + j.existing_uploader + '),勾「強制覆蓋」再試');
+    } else {
+      showStatus('err', '⛔ ' + (j.error || res.statusText));
+    }
+  } catch (err) {
+    showStatus('err', '⛔ ' + err.message);
+  }
+});
+
+function showStatus(cls, msg) {
+  statusBox.className = cls;
+  statusBox.textContent = msg;
+}
+
+async function deleteSite(name, owner) {
+  const id = prompt('刪除 "' + name + '" — 需 uploader=' + owner + ' 比對。\n輸入你的 identity:');
+  if (!id) return;
+  const res = await fetch('/api/site/' + name, {
+    method:'DELETE',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ identity: id.trim() })
+  });
+  const j = await res.json();
+  if (res.ok) { alert('✓ 已刪除 ' + name); location.reload(); }
+  else alert('⛔ ' + (j.error || res.statusText));
+}
+
+async function extendSite(name, owner) {
+  const id = prompt('延長 "' + name + '" — 需 uploader=' + owner + ' 比對。\n輸入你的 identity:');
+  if (!id) return;
+  const ttl = prompt('新的 TTL 天數 (1–180):', '60');
+  if (!ttl) return;
+  const res = await fetch('/api/site/' + name + '/extend', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ identity: id.trim(), ttl: Number(ttl) })
+  });
+  const j = await res.json();
+  if (res.ok) { alert('✓ 已延長 ' + name + ' 至 ' + j.expires_at); location.reload(); }
+  else alert('⛔ ' + (j.error || res.statusText));
+}
+</script>
+</body>
+</html>

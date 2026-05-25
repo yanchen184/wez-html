@@ -1,0 +1,4 @@
+bin/
+.wez-html-data/
+*.log
+.DS_Store
