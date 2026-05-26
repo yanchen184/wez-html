@@ -156,6 +156,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	preserveKVOnForce(siteDir, staging)
 	_ = os.RemoveAll(siteDir)
 	if err := os.Rename(staging, siteDir); err != nil {
 		_ = os.RemoveAll(staging)
@@ -278,6 +279,7 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	preserveKVOnForce(siteDir, staging)
 	_ = os.RemoveAll(siteDir)
 	if err := os.Rename(staging, siteDir); err != nil {
 		_ = os.RemoveAll(staging)
@@ -666,3 +668,23 @@ func writeErr(w http.ResponseWriter, code int, msg string) {
 
 // 確保 io 用到(實際呼叫上面已用)
 var _ = io.Copy
+
+// preserveKVOnForce 在 force 覆蓋舊站時保留 KV 資料目錄。
+//
+// 原本流程:RemoveAll(siteDir) → Rename(staging, siteDir),會把 KV 一起砍掉。
+// 修法:Rename 前先把舊 siteDir/.data/ 搬到 staging/.data/,新 site 上線後 KV 還在。
+// 任何步驟失敗都回退到原本流程(寧可砍 KV 也不要讓上傳整個失敗)。
+//
+// 注意:用 Rename 而非 Copy — 同檔案系統下 Rename 是 atomic,且 KV 大檔不會被複製兩次。
+// 若搬不動(跨檔案系統等罕見情況),fallback 走 RemoveAll 維持原行為。
+func preserveKVOnForce(siteDir, staging string) {
+	srcKV := filepath.Join(siteDir, kv.DataDirName)
+	dstKV := filepath.Join(staging, kv.DataDirName)
+	info, err := os.Stat(srcKV)
+	if err != nil || !info.IsDir() {
+		return
+	}
+	if err := os.Rename(srcKV, dstKV); err != nil {
+		log.Printf("preserveKVOnForce: rename %s -> %s failed: %v (KV will be lost on this force upload)", srcKV, dstKV, err)
+	}
+}
