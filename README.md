@@ -1,11 +1,15 @@
 # wez-html
 
-> 給小團隊內部用的 demo 站台 service。一行 command 把任何前端 / 單一 html 部署上去,**附過期、附 uploader 追溯、附刪除/延長介面**。
+> 給小團隊內部用的 demo 站台 service。一行 command 把任何前端 / 單一 html 部署上去,**附過期、附 uploader 追溯、附刪除/延長介面、附 KV CRUD**。
 
 ```bash
-$ wez_upload_html ./frontend yc
+$ ./bin/wez_upload_html ./frontend yc
 ✅ http://your-server:8090/frontend/  · 到期 2026-06-24
 ```
+
+最常見的用法不是裸 CLI,而是透過 [claude-code plugin `/wez:upload-html`](https://github.com/yanchen184/wezoomtek-claude-code-plugin) 一句中文指令把 AI 寫的 HTML 直接推上線(見下方 [Claude Code plugin](#claude-code-plugin) 段)。
+
+![Web UI](docs/images/web-ui.png)
 
 ## 為什麼有這個東西
 
@@ -29,33 +33,45 @@ $ wez_upload_html ./frontend yc
 |---|---|
 | 內網 demo / poc / 個人賽作品分享 | Production hosting |
 | 短期(< 半年)的 landing / 投影片 | 需要長期穩定 URL |
-| 純靜態檔 + 輕量 CRUD(KV JSON) | 關聯式 query / 複雜 schema(等 v2 Datasette) |
+| 純靜態檔 + 輕量 CRUD(KV JSON) | 關聯式 query / 複雜 schema(直接接公司正式 DB) |
 | 內網信任環境(VPN / 辦公室 LAN) | 公網開放(沒驗證、純 identity 追溯) |
 
-## 兩種上傳方式
+## 三種使用方式
 
-### 1. CLI(本機)
+### 1. Claude Code plugin(推薦,內建 Mode A / B / C)
+
+裝 plugin([wezoomtek-claude-code-plugin](https://github.com/yanchen184/wezoomtek-claude-code-plugin))後在 Claude Code 直接打:
+
+```
+/wez:upload-html ai-report.html yc          ← Mode A:推已有的 .html
+/wez:upload-html yc "問卷 5 題畫圓餅圖"        ← Mode B:一句中文需求,Claude 寫網站 + 接 KV 再推
+/wez:upload-html --list                     ← Mode C:管理(list / delete / extend)
+```
+
+Mode B 會自動生整套含 KV CRUD 的 HTML(KV API 範例、CSV 下載、無 CDN 規則⋯都在 plugin command markdown 內預載),使用者不用寫 prompt 細節。實際範例見 [威進競賽個人賽提案頁](http://10.1.1.7:8090/group-contest/)(整頁就是 Mode B + KV 即時回饋表單 dogfood demo)。
+
+### 2. CLI(本機)
 
 ```bash
 # 資料夾
-wez_upload_html ./frontend yc
+./bin/wez_upload_html ./frontend yc
 
 # 單一 html(自動包成 <site>/index.html)
-wez_upload_html ./個人賽.html yc --name personal-contest
+./bin/wez_upload_html ./個人賽.html yc --name personal-contest
 
 # 帶 TTL / 覆蓋撞名 / 自訂名稱
-wez_upload_html ./demo bob --ttl 90 --name landing-2026
-wez_upload_html ./demo alice --force
+./bin/wez_upload_html ./demo bob --ttl 90 --name landing-2026
+./bin/wez_upload_html ./demo alice --force   # 重推會「保留 KV `.data/`」,只換 HTML(v1.1.1+)
 
 # 管理
-wez_upload_html --list
-wez_upload_html --delete frontend yc
-wez_upload_html --extend frontend yc --ttl 60
+./bin/wez_upload_html --list
+./bin/wez_upload_html --delete frontend yc
+./bin/wez_upload_html --extend frontend yc --ttl 60
 ```
 
-`--server` flag 蓋掉預設 endpoint(預設 `http://localhost:8090`)。
+`--server` flag 蓋掉預設 endpoint(預設 `http://localhost:8090`)。要全域可用,把 `./bin/wez_upload_html` 加 PATH 或 `sudo cp ./bin/wez_upload_html /usr/local/bin/`。
 
-### 2. Web UI
+### 3. Web UI
 
 打開 `http://your-server:8090/`,拖一個 `.html` 或 `.tar.gz` 進拖檔區,填 identity + TTL,送出。
 
@@ -135,9 +151,11 @@ await fetch(KV + '/score-1', { method: 'DELETE' });
 `examples/scoreboard/` 是一頁完整的 CRUD demo(記分板,UI + KV 全包)。
 
 ```bash
-wez_upload_html ./examples/scoreboard yc --name scoreboard
+./bin/wez_upload_html ./examples/scoreboard yc --name scoreboard
 # 開 http://your-server:8090/scoreboard/ 直接玩
 ```
+
+![Scoreboard demo](docs/images/scoreboard-demo.png)
 
 ## 架構
 
@@ -170,11 +188,28 @@ wez_upload_html ./examples/scoreboard yc --name scoreboard
 - **identity 純追溯,不驗證**(內網信任模型)— 別人知道你的 identity 就能刪你的站,所以 identity 別用太通用的值
 - **不支援 HTTPS**(對外端用 nginx / Caddy 反向代理)
 
+## Claude Code plugin
+
+真正在用的入口是 [wezoomtek-claude-code-plugin](https://github.com/yanchen184/wezoomtek-claude-code-plugin) 的 `/wez:upload-html`,把這個 server 包成三模式:
+
+- **Mode A** — 第一個 arg 是 `.html` → multipart upload(等同裸 CLI)
+- **Mode B** — 全是中文文字 → Claude 寫整個含 KV 整合的 HTML 再推
+- **Mode C** — `--list` / `--delete` / `--extend`(等同裸 CLI 的管理指令)
+
+plugin 內建生成 SOP(KV API 範例、字型 / 顏色變數、`escape()` helper、CSV-with-BOM、無 CDN 規則),所以 Mode B 不依賴使用者的 prompt 技巧。實際提案頁 [http://10.1.1.7:8090/group-contest/](http://10.1.1.7:8090/group-contest/) 就是 Mode B + KV 表單 dogfood。
+
+## Changelog
+
+- **v1.1.1**(2026-05-26)— `--force` 重新上傳時保留 KV `.data/` 目錄,KV 不再隨 redeploy 被砍
+- **v1.1.0**(2026-05-25)— per-site KV CRUD 上線,scoreboard demo,deploy hardening
+- **v1.0.0** — initial release
+
 ## v2 規劃
 
-- SQLite-as-a-service(Datasette 反向代理)讓前端能接 DB
-- HTTPS / Basic Auth(視部署環境)
-- Web UI 上的 batch upload + rename
+- HTTPS / Basic Auth(目前對外端建議 nginx / Caddy 反代,內建 option 待補)
+- tar.gz multi-file 上傳(目前 Mode B 限單檔 HTML,要推整個 build dist 還做不到)
+- Web UI batch upload(一次只能推一檔)
+- ~~SQLite-as-a-service(Datasette 反向代理)~~ — KV 已涵蓋 demo 等級需求,暫不做
 
 ## License
 
