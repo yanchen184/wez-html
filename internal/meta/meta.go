@@ -17,6 +17,7 @@ type Meta struct {
 	TTLDays    int       `json:"ttl_days"`
 	ExpiresAt  time.Time `json:"expires_at"`
 	Src        string    `json:"src,omitempty"`
+	SrcPath    string    `json:"src_path,omitempty"` // 上傳者本機原始絕對路徑(CLI 才填得到;web 拖拉拿不到)
 	SizeBytes  int64     `json:"size_bytes"`
 	Files      int       `json:"files"`
 }

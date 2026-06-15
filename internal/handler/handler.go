@@ -146,6 +146,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		TTLDays:    ttl,
 		ExpiresAt:  meta.ComputeExpiresAt(ttl),
 		Src:        src,
+		SrcPath:    strings.TrimSpace(r.FormValue("src_path")),
 		SizeBytes:  st.SizeBytes,
 		Files:      st.Files,
 	}
@@ -269,6 +270,7 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 		TTLDays:    ttl,
 		ExpiresAt:  meta.ComputeExpiresAt(ttl),
 		Src:        fh.Filename,
+		SrcPath:    strings.TrimSpace(r.FormValue("src_path")), // 瀏覽器拖拉一般為空(拿不到絕對路徑)
 		SizeBytes:  n,
 		Files:      1,
 	}
@@ -484,6 +486,7 @@ type siteSummary struct {
 	DaysLeft   int       `json:"days_left"`
 	SizeBytes  int64     `json:"size_bytes"`
 	SizeHuman  string    `json:"size_human"`
+	SrcPath    string    `json:"src_path"`
 	URL        string    `json:"url"`
 }
 
@@ -510,6 +513,7 @@ func (s *Server) collectSites() []siteSummary {
 			DaysLeft:   m.DaysLeft(),
 			SizeBytes:  total,
 			SizeHuman:  humanize(total),
+			SrcPath:    m.SrcPath,
 			URL:        "/" + m.Site + "/",
 		})
 	}

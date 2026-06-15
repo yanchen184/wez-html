@@ -25,6 +25,7 @@
   td.site a { color:var(--accent); text-decoration:none; font-weight:600; font-family:"SF Mono",monospace; }
   td.site a:hover { text-decoration:underline; }
   td.mono { font-family:"SF Mono",monospace; color:var(--muted); white-space:nowrap; font-size:13px; }
+  td.srcpath { font-family:"SF Mono",monospace; color:var(--muted); font-size:12px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:help; }
   td.actions { white-space:nowrap; }
   .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; font-family:"SF Mono",monospace; }
   .pill.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
@@ -118,7 +119,7 @@ $ /wez_upload_html --extend my-demo yc --ttl 60</pre>
     {{if .Sites}}
     <table>
       <thead>
-        <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>到期</th><th>大小</th><th>動作</th></tr>
+        <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>到期</th><th>大小</th><th>本機路徑</th><th>動作</th></tr>
       </thead>
       <tbody>
       {{range .Sites}}
@@ -132,6 +133,7 @@ $ /wez_upload_html --extend my-demo yc --ttl 60</pre>
             {{else}}<span class="pill ok">{{.DaysLeft}}d</span>{{end}}
           </td>
           <td class="mono">{{.SizeHuman}}</td>
+          <td class="srcpath" title="{{.SrcPath}}">{{if .SrcPath}}{{.SrcPath}}{{else}}—{{end}}</td>
           <td class="actions">
             <button class="act" onclick="extendSite('{{.Name}}','{{.Uploader}}')">+30d</button>
             <button class="act danger" onclick="deleteSite('{{.Name}}','{{.Uploader}}')">刪除</button>

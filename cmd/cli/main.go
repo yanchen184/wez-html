@@ -294,6 +294,7 @@ func uploadCmd(server, path, site, identity string, ttl int, force bool) {
 	_ = mw.WriteField("ttl", fmt.Sprint(ttl))
 	_ = mw.WriteField("force", ifStr(force, "1", "0"))
 	_ = mw.WriteField("src", abs)
+	_ = mw.WriteField("src_path", abs)
 	mw.Close()
 
 	req, _ := http.NewRequest("POST", server+"/api/upload", body)
