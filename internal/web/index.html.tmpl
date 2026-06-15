@@ -64,7 +64,7 @@
 <div class="wrap">
   <header>
     <h1>wez-html · 內網靜態站台</h1>
-    <p class="sub">用 <code>/wez_upload_html</code> 或下方拖檔上傳。每站預設 30 天,可設 1–180 天。過期自動下架。</p>
+    <p class="sub">用 <code>/wez_upload_html</code> 或下方拖檔上傳。站台上傳後常駐,不會自動下架,需要時手動刪除。</p>
     <div class="stats">
       <div>共 <b>{{.Total}}</b> 站</div>
       <div>總用量 <b>{{.TotalSize}}</b></div>
@@ -90,13 +90,8 @@
           <input type="text" id="identityInput" placeholder="yc" pattern="[a-zA-Z0-9_-]{1,20}" required>
         </div>
         <div>
-          <label for="ttlInput">TTL 天數 (1–180)</label>
-          <input type="number" id="ttlInput" min="1" max="180" value="30" required>
-        </div>
-        <div>
           <label><input type="checkbox" id="forceInput"> 強制覆蓋(撞名時)</label>
         </div>
-        <div></div>
         <div>
           <button type="submit">上傳</button>
         </div>
@@ -106,10 +101,8 @@
         <summary>偏好 CLI?用 <code class="inline">/wez_upload_html</code></summary>
 <pre>$ /wez_upload_html ./個人賽.html yc           # 單檔自動包成資料夾
 $ /wez_upload_html ./frontend yc
-$ /wez_upload_html ./frontend bob --ttl 90
 $ /wez_upload_html ./frontend yc --force
-$ /wez_upload_html --delete my-demo yc
-$ /wez_upload_html --extend my-demo yc --ttl 60</pre>
+$ /wez_upload_html --delete my-demo yc</pre>
       </details>
     </div>
   </section>
@@ -119,7 +112,7 @@ $ /wez_upload_html --extend my-demo yc --ttl 60</pre>
     {{if .Sites}}
     <table>
       <thead>
-        <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>到期</th><th>大小</th><th>本機路徑</th><th>動作</th></tr>
+        <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>已上線</th><th>大小</th><th>本機路徑</th><th>動作</th></tr>
       </thead>
       <tbody>
       {{range .Sites}}
@@ -127,15 +120,10 @@ $ /wez_upload_html --extend my-demo yc --ttl 60</pre>
           <td class="site"><a href="/{{.Name}}/" target="_blank">{{.Name}}</a></td>
           <td class="mono">{{.Uploader}}</td>
           <td class="mono">{{.UploadedAt.Format "01-02 15:04"}}</td>
-          <td>
-            {{if lt .DaysLeft 7}}<span class="pill danger">{{.DaysLeft}}d</span>
-            {{else if lt .DaysLeft 14}}<span class="pill warn">{{.DaysLeft}}d</span>
-            {{else}}<span class="pill ok">{{.DaysLeft}}d</span>{{end}}
-          </td>
+          <td class="mono">{{.DaysOnline}}d</td>
           <td class="mono">{{.SizeHuman}}</td>
           <td class="srcpath" title="{{.SrcPath}}">{{if .SrcPath}}{{.SrcPath}}{{else}}—{{end}}</td>
           <td class="actions">
-            <button class="act" onclick="extendSite('{{.Name}}','{{.Uploader}}')">+30d</button>
             <button class="act danger" onclick="deleteSite('{{.Name}}','{{.Uploader}}')">刪除</button>
           </td>
         </tr>
@@ -212,7 +200,6 @@ form.addEventListener('submit', async e => {
   }
   fd.append('site', document.getElementById('siteInput').value.trim());
   fd.append('identity', document.getElementById('identityInput').value.trim());
-  fd.append('ttl', document.getElementById('ttlInput').value);
   fd.append('force', document.getElementById('forceInput').checked ? '1' : '0');
   showStatus('ok', '上傳中...');
   try {
@@ -247,21 +234,6 @@ async function deleteSite(name, owner) {
   });
   const j = await res.json();
   if (res.ok) { alert('✓ 已刪除 ' + name); location.reload(); }
-  else alert('⛔ ' + (j.error || res.statusText));
-}
-
-async function extendSite(name, owner) {
-  const id = prompt('延長 "' + name + '" — 需 uploader=' + owner + ' 比對。\n輸入你的 identity:');
-  if (!id) return;
-  const ttl = prompt('新的 TTL 天數 (1–180):', '60');
-  if (!ttl) return;
-  const res = await fetch('/api/site/' + name + '/extend', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ identity: id.trim(), ttl: Number(ttl) })
-  });
-  const j = await res.json();
-  if (res.ok) { alert('✓ 已延長 ' + name + ' 至 ' + j.expires_at); location.reload(); }
   else alert('⛔ ' + (j.error || res.statusText));
 }
 </script>

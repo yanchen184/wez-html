@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	MinTTL = 1
-	MaxTTL = 180
+	MinTTL     = 1
+	MaxTTL     = 180
+	DefaultTTL = 30 // TTL 已停用,僅作為沒帶 ttl 時的記錄預設值
 )
 
 var (
@@ -97,10 +98,11 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "identity must match ^[a-zA-Z0-9_-]{1,20}$")
 		return
 	}
+	// TTL 概念已停用(站台常駐,不自動下架)。仍接收 ttl 以維持舊 CLI 相容,
+	// 但不再驗證/不再導致過期:沒帶或帶錯一律落回 DefaultTTL,純粹記錄用。
 	ttl, err := strconv.Atoi(ttlStr)
 	if err != nil || ttl < MinTTL || ttl > MaxTTL {
-		writeErr(w, 400, fmt.Sprintf("ttl must be %d-%d", MinTTL, MaxTTL))
-		return
+		ttl = DefaultTTL
 	}
 
 	file, _, err := r.FormFile("archive")
@@ -201,10 +203,11 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "identity must match ^[a-zA-Z0-9_-]{1,20}$")
 		return
 	}
+	// TTL 概念已停用(站台常駐,不自動下架)。仍接收 ttl 以維持舊 CLI 相容,
+	// 但不再驗證/不再導致過期:沒帶或帶錯一律落回 DefaultTTL,純粹記錄用。
 	ttl, err := strconv.Atoi(ttlStr)
 	if err != nil || ttl < MinTTL || ttl > MaxTTL {
-		writeErr(w, 400, fmt.Sprintf("ttl must be %d-%d", MinTTL, MaxTTL))
-		return
+		ttl = DefaultTTL
 	}
 
 	file, fh, err := r.FormFile("file")
@@ -484,6 +487,7 @@ type siteSummary struct {
 	UploadedAt time.Time `json:"uploaded_at"`
 	ExpiresAt  time.Time `json:"expires_at"`
 	DaysLeft   int       `json:"days_left"`
+	DaysOnline int       `json:"days_online"`
 	SizeBytes  int64     `json:"size_bytes"`
 	SizeHuman  string    `json:"size_human"`
 	SrcPath    string    `json:"src_path"`
@@ -511,6 +515,7 @@ func (s *Server) collectSites() []siteSummary {
 			UploadedAt: m.UploadedAt,
 			ExpiresAt:  m.ExpiresAt,
 			DaysLeft:   m.DaysLeft(),
+			DaysOnline: m.DaysOnline(),
 			SizeBytes:  total,
 			SizeHuman:  humanize(total),
 			SrcPath:    m.SrcPath,

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/yanchen184/wez-html/internal/handler"
-	"github.com/yanchen184/wez-html/internal/reaper"
 	"github.com/yanchen184/wez-html/internal/web"
 )
 
@@ -40,9 +39,9 @@ func main() {
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go reaper.Run(ctx, *root, *reapInterval)
+	// 自動下架已停用:站台上傳後常駐,不再因 TTL 被自動清掉。
+	// --reap-interval flag 仍接收以維持既有 service / 呼叫相容,但不再啟動 sweep。
+	_ = reapInterval
 
 	httpSrv := &http.Server{
 		Addr:              *listen,

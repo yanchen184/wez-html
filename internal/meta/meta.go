@@ -54,6 +54,15 @@ func Save(root string, m *Meta) error {
 	return os.Rename(tmp, filepath.Join(dir, FileName))
 }
 
+// DaysOnline 回傳站台從上傳到現在已上線幾天(無條件進位前的整數天)。
+func (m *Meta) DaysOnline() int {
+	d := time.Since(m.UploadedAt) / (24 * time.Hour)
+	if d < 0 {
+		return 0
+	}
+	return int(d)
+}
+
 func (m *Meta) DaysLeft() int {
 	d := time.Until(m.ExpiresAt) / (24 * time.Hour)
 	if d < 0 {
