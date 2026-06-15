@@ -5,135 +5,355 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>wez-html · 內網靜態站台</title>
 <style>
-  :root { --fg:#111; --muted:#555; --line:#e4e4e7; --bg:#fff; --accent:#dc2626; --soft:#fafafa; --warn:#f59e0b; }
+  :root {
+    --fg:#18181b; --muted:#71717a; --faint:#a1a1aa; --line:#e4e4e7; --line-soft:#f0f0f1;
+    --bg:#fbfbfa; --surface:#fff; --accent:#dc2626; --accent-soft:#fff1f1;
+    --ok-bg:#f0fdf4; --ok-fg:#166534; --ok-line:#bbf7d0;
+    --warn-bg:#fffbeb; --warn-fg:#92400e; --warn-line:#fde68a;
+    --danger-bg:#fef2f2; --danger-fg:#991b1b; --danger-line:#fecaca;
+    --mono:"SF Mono","Menlo","Consolas",monospace;
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; color:var(--fg); background:var(--bg); line-height:1.6; font-size:15px; }
-  .wrap { max-width:1100px; margin:0 auto; padding:32px clamp(16px,4vw,32px); }
-  header { border-bottom:2px solid var(--fg); padding-bottom:16px; margin-bottom:24px; }
-  h1 { font-family:"SF Mono","Menlo",monospace; font-size:28px; margin:0 0 6px; letter-spacing:-0.01em; }
-  .sub { color:var(--muted); font-size:14px; margin:0; }
-  .sub code, code.inline { background:var(--soft); border:1px solid var(--line); padding:1px 6px; border-radius:3px; font-family:"SF Mono",monospace; font-size:13px; }
-  .stats { display:flex; gap:24px; margin-top:12px; font-size:13px; color:var(--muted); }
-  .stats b { color:var(--fg); }
+  body { margin:0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; color:var(--fg); background:var(--bg); line-height:1.5; font-size:14px; -webkit-font-smoothing:antialiased; }
+  a { color:inherit; }
 
-  section { margin: 28px 0; }
-  h2 { font-size:18px; margin:0 0 12px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  /* ---- top bar (white nav, strong black bottom border) ---- */
+  .topbar { background:#fff; color:var(--fg); border-bottom:2px solid #18181b; }
+  .topbar-inner { max-width:none; margin:0 auto; padding:0 38px; height:58px; display:flex; align-items:center; gap:22px; }
+  .brand { display:flex; align-items:center; gap:12px; font-family:var(--mono); font-weight:800; font-size:21px; letter-spacing:-0.02em; white-space:nowrap; }
+  .brand .logo { width:34px; height:28px; flex:0 0 auto; color:var(--accent); display:flex; align-items:center; justify-content:center; }
+  .brand .logo svg { width:34px; height:28px; }
+  .brand .accent { color:var(--accent); }
+  .brand .badge { font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif; font-weight:700; font-size:12px; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:3px 10px; letter-spacing:0.02em; }
+  .topbar .opsum { color:var(--muted); font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; }
+  .topbar .opsum b { color:var(--fg); font-weight:600; }
+  .topnav { display:flex; align-items:center; gap:4px; flex:0 0 auto; }
+  .topnav a { display:inline-flex; align-items:center; gap:5px; color:var(--muted); text-decoration:none; font-size:12.5px; padding:6px 10px; border-radius:6px; }
+  .topnav a:hover { background:#f4f4f5; color:var(--fg); }
+  .topnav a svg { width:14px; height:14px; }
+  .topnav .status { display:inline-flex; align-items:center; gap:6px; color:var(--ok-fg); font-size:12px; padding:6px 10px; }
+  .topnav .status .dot { width:7px; height:7px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.18); }
 
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { background:var(--soft); font-weight:600; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; }
-  td.site a { color:var(--accent); text-decoration:none; font-weight:600; font-family:"SF Mono",monospace; }
+  .wrap { max-width:none; margin:0 auto; padding:22px 38px 40px; }
+
+  /* ---- intro copy row ---- */
+  .intro { font-size:14px; color:var(--muted); margin:0 0 14px; line-height:1.7; }
+  .intro code.inline { font-size:12px; }
+  .statline { display:flex; align-items:center; gap:24px; color:var(--muted); font-size:13px; margin:0 0 20px; }
+  .statline b { color:var(--fg); font-weight:700; }
+
+  /* ---- compact header strip ---- */
+  .pagehead { display:none; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .pagehead .title { font-size:15px; font-weight:600; margin:0; display:flex; align-items:center; gap:10px; }
+  .pagehead .title .cmd { background:var(--surface); border:1px solid var(--line); padding:3px 8px; border-radius:6px; font-family:var(--mono); font-size:12px; color:var(--accent); font-weight:600; }
+  .pagehead .meta { color:var(--muted); font-size:12.5px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .pagehead .meta b { color:var(--fg); font-weight:600; }
+  .pagehead .meta .dot { width:6px; height:6px; border-radius:50%; background:#22c55e; display:inline-block; margin-right:5px; vertical-align:middle; }
+
+  /* red vertical accent bar before section titles */
+  .panel-head h2::before { content:""; width:3px; height:15px; border-radius:2px; background:var(--accent); flex:0 0 auto; }
+
+  code.inline { background:var(--surface); border:1px solid var(--line); padding:1px 6px; border-radius:5px; font-family:var(--mono); font-size:12.5px; }
+
+  /* ---- dashboard grid ---- */
+  .grid { display:grid; grid-template-columns: minmax(0,1.58fr) minmax(500px,1fr); gap:22px; align-items:stretch; }
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 2px rgba(24,24,27,.03); }
+  .panel-head { padding:16px 16px 14px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .panel-head h2 { font-size:17px; font-weight:800; margin:0; display:flex; align-items:center; gap:8px; }
+  .panel-head h2 svg { width:15px; height:15px; color:var(--muted); }
+  .panel-head .hint { font-size:11.5px; color:var(--faint); }
+  .panel-body { padding:18px 16px 20px; }
+
+  /* metric cards — taller, airier, colored bottom-border accent */
+  .metrics { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  .metric { background:var(--surface); border:1px solid var(--line); border-bottom-width:3px; border-radius:6px; padding:26px 22px 20px; display:flex; flex-direction:column; gap:16px; min-height:218px; box-shadow:0 1px 2px rgba(24,24,27,.03); }
+  .metric.red    { border-bottom-color:var(--accent); }
+  .metric.amber  { border-bottom-color:#f59e0b; }
+  .metric.green  { border-bottom-color:#22c55e; }
+  .metric.gray   { border-bottom-color:#a1a1aa; }
+  .metric .m-top { display:flex; align-items:center; justify-content:space-between; }
+  .metric .m-label { font-size:14px; color:var(--muted); font-weight:600; }
+  .metric .m-ico { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .metric .m-ico svg { width:22px; height:22px; }
+  .metric .m-ico.red { background:var(--accent-soft); color:var(--accent); }
+  .metric .m-ico.green { background:var(--ok-bg); color:var(--ok-fg); }
+  .metric .m-ico.amber { background:var(--warn-bg); color:var(--warn-fg); }
+  .metric .m-ico.gray { background:#f4f4f5; color:var(--muted); }
+  .metric .m-value { font-size:36px; font-weight:800; line-height:1.05; letter-spacing:-0.02em; font-family:var(--mono); }
+  .metric .m-value.sm { font-size:23px; line-height:1.25; overflow:hidden; text-overflow:ellipsis; }
+  .metric .m-foot { font-size:13px; color:var(--muted); margin-top:auto; }
+
+  /* upload dropzone — red dashed border, light red tint, big cloud */
+  .upload-box { display:block; position:relative; border:2px dashed #ff6b6b; border-radius:6px; min-height:238px; padding:32px 18px; background:linear-gradient(180deg,#fff7f7 0%,#fff2f2 100%); transition:border-color .12s, background .12s; }
+  .upload-box.drag { border-color:var(--accent); background:#fee2e2; }
+  .drop-hint { color:var(--muted); font-size:13px; text-align:center; display:flex; flex-direction:column; align-items:center; }
+  .drop-hint .cloud { width:56px; height:56px; color:var(--accent); margin-bottom:12px; }
+  .drop-hint b { color:var(--fg); font-family:var(--mono); }
+  .drop-hint .chips { display:flex; gap:7px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+  .drop-hint .chips span { font-family:var(--mono); font-size:12px; color:var(--accent); background:#fff; border:1px solid var(--danger-line); border-radius:999px; padding:4px 11px; }
+  .drop-hint .pick { display:inline-block; margin-top:14px; font-size:12.5px; color:var(--accent); font-weight:600; cursor:pointer; text-decoration:underline; }
+  .drop-hint input[type=file] { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; clip:rect(0 0 0 0); }
+  #fileInfo { margin-top:12px; min-height:20px; text-align:center; }
+  #fileInfo .filechip { display:inline-flex; align-items:center; gap:10px; min-width:250px; justify-content:flex-start; font-family:var(--mono); font-size:13px; color:var(--fg); background:#fff; border:1px solid var(--accent); border-radius:7px; padding:8px 13px; box-shadow:0 1px 2px rgba(220,38,38,.08); }
+  #fileInfo .filechip svg { width:14px; height:14px; color:var(--accent); flex:0 0 auto; }
+  #fileInfo .filechip.warn { color:var(--warn-fg); border-color:var(--warn-line); background:var(--warn-bg); }
+  #fileInfo .filechip.warn svg { color:var(--warn-fg); }
+  #fileInfo .filechip .sz { color:var(--faint); }
+
+  .upload-form { display:grid; grid-template-columns:1fr 1fr; gap:16px 26px; margin-top:16px; align-items:end; }
+  .upload-form .field-force { grid-column:1; display:flex; align-items:center; }
+  .upload-form .submit-cell { grid-column:2; display:flex; justify-content:flex-end; align-items:end; }
+  .upload-form label.fl { display:block; font-size:11.5px; color:var(--muted); margin-bottom:5px; font-weight:500; }
+  .upload-form input[type=text] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:5px; font-size:14px; font-family:inherit; background:var(--surface); }
+  .upload-form input[type=text]:focus { outline:none; border-color:var(--fg); }
+  /* force = CSS toggle switch, keeps native checkbox#forceInput hidden but functional */
+  .upload-form .cb { font-size:12.5px; color:var(--muted); display:inline-flex; align-items:center; gap:9px; cursor:pointer; user-select:none; }
+  .upload-form .cb input[type=checkbox] { position:absolute; opacity:0; width:0; height:0; }
+  .upload-form .cb .switch { width:34px; height:20px; border-radius:999px; background:#d4d4d8; position:relative; flex:0 0 auto; transition:background .15s; }
+  .upload-form .cb .switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:transform .15s; }
+  .upload-form .cb input:checked + .switch { background:var(--accent); }
+  .upload-form .cb input:checked + .switch::after { transform:translateX(14px); }
+  .upload-form .cb input:focus-visible + .switch { outline:2px solid var(--accent); outline-offset:2px; }
+  .upload-form button[type=submit] { padding:12px 24px; background:var(--accent); color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:700; display:inline-flex; align-items:center; gap:8px; box-shadow:0 8px 18px rgba(220,38,38,.16); }
+  .upload-form button[type=submit]:hover { background:#b91c1c; }
+  .upload-form button[type=submit] svg { width:14px; height:14px; }
+
+  #status { margin-top:14px; font-size:12.5px; font-family:var(--mono); padding:8px 12px; border-radius:6px; display:none; }
+  #status.ok { display:block; background:var(--ok-bg); color:var(--ok-fg); border:1px solid var(--ok-line); }
+  #status.err { display:block; background:var(--danger-bg); color:var(--danger-fg); border:1px solid var(--danger-line); }
+
+  /* ---- sites table ---- */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; min-width:920px; }
+  thead th { text-align:left; padding:13px 16px; background:#fafafa; border-bottom:1px solid var(--line); font-weight:700; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
+  tbody td { text-align:left; padding:15px 16px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
+  tbody tr:hover { background:#fafafa; }
+  tbody tr:last-child td { border-bottom:none; }
+  td.site a { color:var(--accent); text-decoration:none; font-weight:800; font-family:var(--mono); font-size:14px; }
   td.site a:hover { text-decoration:underline; }
-  td.mono { font-family:"SF Mono",monospace; color:var(--muted); white-space:nowrap; font-size:13px; }
-  td.srcpath { font-family:"SF Mono",monospace; color:var(--muted); font-size:12px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:help; }
-  td.actions { white-space:nowrap; }
-  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; font-family:"SF Mono",monospace; }
-  .pill.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
-  .pill.warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
-  .pill.danger { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+  td.mono { font-family:var(--mono); color:var(--muted); white-space:nowrap; font-size:12.5px; }
+  td.srcpath { font-family:var(--mono); color:var(--faint); font-size:11.5px; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:help; }
+  td.actions { white-space:nowrap; text-align:right; }
+  td.actions .row-acts { display:inline-flex; align-items:center; gap:6px; justify-content:flex-end; }
+  a.icon-act, button.icon-act { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; text-decoration:none; padding:0; }
+  a.icon-act:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  button.icon-act.del:hover { border-color:var(--danger-line); color:var(--accent); background:var(--accent-soft); }
+  a.icon-act svg, button.icon-act svg { width:15px; height:15px; }
 
-  button.act { font-family:inherit; font-size:12px; padding:4px 10px; border-radius:4px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--fg); }
-  button.act:hover { background:var(--soft); }
-  button.danger { border-color:var(--accent); color:var(--accent); }
-  button.danger:hover { background:#fef2f2; }
+  .pill { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; font-size:11.5px; font-family:var(--mono); font-weight:500; }
+  .pill::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; }
+  .pill.ok { background:var(--ok-bg); color:var(--ok-fg); }
+  .pill.warn { background:var(--warn-bg); color:var(--warn-fg); }
+  .pill.danger { background:var(--danger-bg); color:var(--danger-fg); }
 
-  .upload-box { border:2px dashed var(--line); border-radius:8px; padding:20px; background:var(--soft); }
-  .upload-box.drag { border-color:var(--accent); background:#fef2f2; }
-  .upload-form { display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; margin-top:12px; align-items:end; }
-  .upload-form label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
-  .upload-form input { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:4px; font-size:13px; font-family:inherit; }
-  .upload-form button[type=submit] { padding:10px 16px; background:var(--fg); color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:inherit; }
-  .upload-form button[type=submit]:hover { background:#000; }
-  .drop-hint { color:var(--muted); font-size:14px; text-align:center; padding:10px 0; }
-  .drop-hint b { color:var(--fg); font-family:"SF Mono",monospace; }
-  #fileInfo { font-size:13px; color:var(--accent); margin-top:8px; font-family:"SF Mono",monospace; min-height:18px; }
-  #status { margin-top:12px; font-size:13px; font-family:"SF Mono",monospace; padding:8px 12px; border-radius:4px; display:none; }
-  #status.ok { display:block; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
-  #status.err { display:block; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+  button.act { font-family:inherit; font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; border:1px solid var(--line); background:var(--surface); color:var(--muted); }
+  button.act:hover { background:#fafafa; }
+  button.danger { border-color:var(--danger-line); color:var(--accent); }
+  button.danger:hover { background:var(--accent-soft); }
 
-  details.help { margin-top:12px; font-size:13px; color:var(--muted); }
-  details.help summary { cursor:pointer; }
-  details.help pre { background:#0b0b0c; color:#e4e4e7; padding:12px; border-radius:4px; font-size:12px; overflow-x:auto; }
+  .empty { padding:48px; min-height:108px; text-align:center; color:var(--muted); }
+  .table-footer { display:flex; align-items:center; justify-content:center; gap:14px; padding:13px 16px; border-top:1px solid var(--line-soft); color:var(--muted); font-size:13px; }
+  .pager { display:inline-flex; align-items:center; gap:6px; }
+  .pager button, .page-size { border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; height:30px; padding:0 10px; font:inherit; }
+  .pager .active { background:var(--accent); color:#fff; border-color:var(--accent); }
 
-  .empty { padding:40px; text-align:center; color:var(--muted); background:var(--soft); border-radius:8px; }
+  details.help { margin-top:14px; font-size:12.5px; color:var(--muted); }
+  details.help summary { cursor:pointer; user-select:none; }
+  details.help pre { background:#18181b; color:#e4e4e7; padding:12px; border-radius:6px; font-size:11.5px; overflow-x:auto; margin-top:10px; }
 
-  footer { margin-top:40px; color:var(--muted); font-size:12px; padding-top:16px; border-top:1px solid var(--line); }
+  footer { margin-top:36px; color:var(--faint); font-size:11.5px; padding-top:16px; border-top:1px solid var(--line); }
+  footer code.inline { font-size:11.5px; }
+
+  /* ---- responsive ---- */
+  @media (max-width: 880px) {
+    .grid { grid-template-columns:1fr; }
+    .topbar .opsum { display:none; }
+    .topbar-inner, .wrap { padding-left:18px; padding-right:18px; }
+  }
+  @media (max-width: 540px) {
+    .metrics { grid-template-columns:1fr; }
+    .upload-form { grid-template-columns:1fr; }
+    .upload-form .field-force, .upload-form .submit-cell { grid-column:1; justify-content:flex-start; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>wez-html · 內網靜態站台</h1>
-    <p class="sub">用 <code>/wez_upload_html</code> 或下方拖檔上傳。站台上傳後常駐,不會自動下架,需要時手動刪除。</p>
-    <div class="stats">
-      <div>共 <b>{{.Total}}</b> 站</div>
-      <div>總用量 <b>{{.TotalSize}}</b></div>
-      <div>{{.Version}} · {{.GeneratedAt}}</div>
-    </div>
-  </header>
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">
+      <span class="logo"><svg viewBox="0 0 36 28" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 4L14 14L4 24"/><path d="M20 24H32"/></svg></span>
+      wez<span class="accent">-</span>html
+      <span class="badge">內部服務</span>
+    </span>
+    <span class="opsum">內網靜態站台 · 已上線 <b>{{.Total}}</b> 站 · 用量 <b>{{.TotalSize}}</b> · {{.Version}}</span>
+    <nav class="topnav">
+      <a href="#upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>使用說明</a>
+      <a href="#cli"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 9 12 4 17"/><line x1="12" y1="17" x2="20" y2="17"/></svg>CLI 指令</a>
+      <a href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>重新整理</a>
+      <span class="status"><span class="dot"></span>服務正常</span>
+    </nav>
+  </div>
+</div>
 
-  <section>
-    <h2>拖檔上傳</h2>
-    <div class="upload-box" id="dropZone">
-      <div class="drop-hint">
-        拖 <b>.html</b> 單檔、或 <b>.tar.gz</b> 整包到這裡;也可手選檔案。
-        <input type="file" id="fileInput" accept=".html,.htm,.tar.gz,.tgz,text/html,application/gzip" style="display:block; margin:10px auto;">
-        <div id="fileInfo"></div>
+<div class="wrap">
+  <p class="intro">
+    把 <code class="inline">.html</code> 單檔或 <code class="inline">.tar.gz</code> 整包透過 <code class="inline">/wez_upload_html</code> 或下方拖檔上傳,即可在內網取得一個常駐網址 — 永久代管,不自動下架。
+  </p>
+  <div class="statline">
+    <span>共 <b>{{.Total}}</b> 站</span>
+    <span>總用量 <b>{{.TotalSize}}</b></span>
+    <span>{{.Version}} · {{.GeneratedAt}}</span>
+  </div>
+  <div class="pagehead">
+    <h2 class="title">站台總覽 <span class="cmd">/wez_upload_html</span></h2>
+    <div class="meta">
+      <span><span class="dot"></span>站台常駐 · 不自動下架</span>
+      <span>共 <b>{{.Total}}</b> 站</span>
+      <span>總用量 <b>{{.TotalSize}}</b></span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- upload panel -->
+    <div class="panel" id="upload">
+      <div class="panel-head">
+        <h2>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          拖檔上傳
+        </h2>
+        <span class="hint">.html 單檔 · .tar.gz 整包</span>
       </div>
-      <form class="upload-form" id="uploadForm">
-        <div>
-          <label for="siteInput">Site name (a–z, 0–9, -)</label>
-          <input type="text" id="siteInput" placeholder="my-demo" pattern="[a-z0-9-]{1,40}" required>
-        </div>
-        <div>
-          <label for="identityInput">你是誰 (英文/工號)</label>
-          <input type="text" id="identityInput" placeholder="yc" pattern="[a-zA-Z0-9_-]{1,20}" required>
-        </div>
-        <div>
-          <label><input type="checkbox" id="forceInput"> 強制覆蓋(撞名時)</label>
-        </div>
-        <div>
-          <button type="submit">上傳</button>
-        </div>
-      </form>
-      <div id="status"></div>
-      <details class="help">
-        <summary>偏好 CLI?用 <code class="inline">/wez_upload_html</code></summary>
+      <div class="panel-body">
+        <label class="upload-box" id="dropZone" for="fileInput">
+          <div class="drop-hint">
+            <svg class="cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l-4-4-4 4"/><path d="M12 12v9"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+            <div>拖 <b>.html</b> 單檔、或 <b>.tar.gz</b> 整包到這裡</div>
+            <div class="chips"><span>.html</span><span>.tar.gz</span><span>.tgz</span></div>
+            <span class="pick">或點此選擇檔案</span>
+            <input type="file" id="fileInput" accept=".html,.htm,.tar.gz,.tgz,text/html,application/gzip">
+            <div id="fileInfo"></div>
+          </div>
+        </label>
+        <form class="upload-form" id="uploadForm">
+          <div>
+            <label class="fl" for="siteInput">Site name (a–z, 0–9, -)</label>
+            <input type="text" id="siteInput" placeholder="my-demo" pattern="[a-z0-9-]{1,40}" required>
+          </div>
+          <div>
+            <label class="fl" for="identityInput">你是誰 (英文/工號)</label>
+            <input type="text" id="identityInput" placeholder="yc" pattern="[a-zA-Z0-9_-]{1,20}" required>
+          </div>
+          <div class="field-force">
+            <label class="cb"><input type="checkbox" id="forceInput"><span class="switch"></span>強制覆蓋(撞名時)</label>
+          </div>
+          <div class="submit-cell">
+            <button type="submit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              上傳
+            </button>
+          </div>
+        </form>
+        <div id="status"></div>
+        <details class="help" id="cli">
+          <summary>偏好 CLI?用 <code class="inline">/wez_upload_html</code></summary>
 <pre>$ /wez_upload_html ./個人賽.html yc           # 單檔自動包成資料夾
 $ /wez_upload_html ./frontend yc
 $ /wez_upload_html ./frontend yc --force
 $ /wez_upload_html --delete my-demo yc</pre>
-      </details>
+        </details>
+      </div>
     </div>
-  </section>
 
-  <section>
-    <h2>目前的站台</h2>
+    <!-- metric cards -->
+    <div class="metrics">
+      <div class="metric red">
+        <div class="m-top">
+          <span class="m-label">站台總數</span>
+          <span class="m-ico red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+        </div>
+        <div class="m-value">{{.Total}}</div>
+        <div class="m-foot">已上線常駐站台</div>
+      </div>
+      <div class="metric amber">
+        <div class="m-top">
+          <span class="m-label">總用量</span>
+          <span class="m-ico amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span>
+        </div>
+        <div class="m-value">{{.TotalSize}}</div>
+        <div class="m-foot">所有站台磁碟佔用</div>
+      </div>
+      <div class="metric green">
+        <div class="m-top">
+          <span class="m-label">最近上傳</span>
+          <span class="m-ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        </div>
+        {{if .Sites}}{{with index .Sites 0}}
+        <div class="m-value sm">{{.Name}}</div>
+        <div class="m-foot">{{.Uploader}} · {{.UploadedAt.Format "01-02 15:04"}}</div>
+        {{end}}{{else}}
+        <div class="m-value sm">—</div>
+        <div class="m-foot">尚無站台</div>
+        {{end}}
+      </div>
+      <div class="metric gray">
+        <div class="m-top">
+          <span class="m-label">版本</span>
+          <span class="m-ico gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
+        </div>
+        <div class="m-value sm">{{.Version}}</div>
+        <div class="m-foot">{{.GeneratedAt}}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- sites table -->
+  <div class="panel" style="margin-top:18px">
+    <div class="panel-head">
+      <h2>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        目前的站台
+      </h2>
+      <span class="hint">{{.Total}} 站</span>
+    </div>
     {{if .Sites}}
-    <table>
-      <thead>
-        <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>已上線</th><th>大小</th><th>本機路徑</th><th>動作</th></tr>
-      </thead>
-      <tbody>
-      {{range .Sites}}
-        <tr data-site="{{.Name}}">
-          <td class="site"><a href="/{{.Name}}/" target="_blank">{{.Name}}</a></td>
-          <td class="mono">{{.Uploader}}</td>
-          <td class="mono">{{.UploadedAt.Format "01-02 15:04"}}</td>
-          <td class="mono">{{.DaysOnline}}d</td>
-          <td class="mono">{{.SizeHuman}}</td>
-          <td class="srcpath" title="{{.SrcPath}}">{{if .SrcPath}}{{.SrcPath}}{{else}}—{{end}}</td>
-          <td class="actions">
-            <button class="act danger" onclick="deleteSite('{{.Name}}','{{.Uploader}}')">刪除</button>
-          </td>
-        </tr>
-      {{end}}
-      </tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>已上線</th><th>大小</th><th>本機路徑</th><th style="text-align:right">動作</th></tr>
+        </thead>
+        <tbody>
+        {{range .Sites}}
+          <tr data-site="{{.Name}}">
+            <td class="site"><a href="/{{.Name}}/" target="_blank">{{.Name}}</a></td>
+            <td class="mono">{{.Uploader}}</td>
+            <td class="mono">{{.UploadedAt.Format "01-02 15:04"}}</td>
+            <td><span class="pill ok">{{.DaysOnline}}d</span></td>
+            <td class="mono">{{.SizeHuman}}</td>
+            <td class="srcpath" title="{{.SrcPath}}">{{if .SrcPath}}{{.SrcPath}}{{else}}—{{end}}</td>
+            <td class="actions">
+              <span class="row-acts">
+                <a class="icon-act" href="/{{.Name}}/" target="_blank" title="開啟站台" aria-label="開啟站台">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                <button class="icon-act del" onclick="deleteSite('{{.Name}}','{{.Uploader}}')" title="刪除站台" aria-label="刪除站台">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                </button>
+              </span>
+            </td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <span>共 <b>{{.Total}}</b> 站 / {{.TotalSize}}</span>
+      <span class="pager"><button type="button" aria-label="上一頁">‹</button><button type="button" class="active">1</button><button type="button" aria-label="下一頁">›</button></span>
+      <span class="page-size">每頁 20 筆</span>
+    </div>
     {{else}}
     <div class="empty">還沒有站台。用上方拖檔或 <code class="inline">/wez_upload_html</code> 上傳第一個。</div>
     {{end}}
-  </section>
+  </div>
 
   <footer>
     wez-html {{.Version}} · 內部 demo 平台 · 不適合 production hosting · 來源 <code class="inline">github.com/yanchen184/wez-html</code>
@@ -163,8 +383,12 @@ function setFile(f) {
   pickedFile = f;
   const isHtml = /\.(html|htm)$/i.test(f.name);
   const isTar  = /\.(tar\.gz|tgz)$/i.test(f.name);
-  const mark = isHtml ? '✓ 單檔模式 · ' : (isTar ? '✓ tar.gz · ' : '⚠ 只接受 .html / .tar.gz · ');
-  fileInfo.textContent = mark + f.name + ' (' + humanSize(f.size) + ')';
+  const ok = isHtml || isTar;
+  const fileIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
+  const warnIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  fileInfo.innerHTML = ok
+    ? '<span class="filechip">' + fileIcon + '<span>' + escapeHtml(f.name) + '</span><span class="sz">' + humanSize(f.size) + '</span></span>'
+    : '<span class="filechip warn">' + warnIcon + '<span>只接受 .html / .tar.gz · ' + escapeHtml(f.name) + '</span></span>';
   const guess = f.name
     .replace(/\.(tar\.gz|tgz|html|htm)$/i, '')
     .toLowerCase()
@@ -174,6 +398,10 @@ function setFile(f) {
   if (!document.getElementById('siteInput').value && guess) {
     document.getElementById('siteInput').value = guess.slice(0, 40);
   }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 function humanSize(n) {
