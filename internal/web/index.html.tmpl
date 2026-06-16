@@ -17,7 +17,7 @@
   body { margin:0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; color:var(--fg); background:var(--bg); line-height:1.5; font-size:14px; -webkit-font-smoothing:antialiased; }
   a { color:inherit; }
 
-  /* ---- top bar (white nav, strong black bottom border) ---- */
+  /* ---- top bar ---- */
   .topbar { background:#fff; color:var(--fg); border-bottom:2px solid #18181b; }
   .topbar-inner { max-width:none; margin:0 auto; padding:0 38px; height:58px; display:flex; align-items:center; gap:22px; }
   .brand { display:flex; align-items:center; gap:12px; font-family:var(--mono); font-weight:800; font-size:21px; letter-spacing:-0.02em; white-space:nowrap; }
@@ -42,17 +42,6 @@
   .statline { display:flex; align-items:center; gap:24px; color:var(--muted); font-size:13px; margin:0 0 20px; }
   .statline b { color:var(--fg); font-weight:700; }
 
-  /* ---- compact header strip ---- */
-  .pagehead { display:none; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
-  .pagehead .title { font-size:15px; font-weight:600; margin:0; display:flex; align-items:center; gap:10px; }
-  .pagehead .title .cmd { background:var(--surface); border:1px solid var(--line); padding:3px 8px; border-radius:6px; font-family:var(--mono); font-size:12px; color:var(--accent); font-weight:600; }
-  .pagehead .meta { color:var(--muted); font-size:12.5px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
-  .pagehead .meta b { color:var(--fg); font-weight:600; }
-  .pagehead .meta .dot { width:6px; height:6px; border-radius:50%; background:#22c55e; display:inline-block; margin-right:5px; vertical-align:middle; }
-
-  /* red vertical accent bar before section titles */
-  .panel-head h2::before { content:""; width:3px; height:15px; border-radius:2px; background:var(--accent); flex:0 0 auto; }
-
   code.inline { background:var(--surface); border:1px solid var(--line); padding:1px 6px; border-radius:5px; font-family:var(--mono); font-size:12.5px; }
 
   /* ---- dashboard grid ---- */
@@ -60,31 +49,27 @@
   .panel { background:var(--surface); border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 2px rgba(24,24,27,.03); }
   .panel-head { padding:16px 16px 14px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .panel-head h2 { font-size:17px; font-weight:800; margin:0; display:flex; align-items:center; gap:8px; }
+  .panel-head h2::before { content:""; width:3px; height:15px; border-radius:2px; background:var(--accent); flex:0 0 auto; }
   .panel-head h2 svg { width:15px; height:15px; color:var(--muted); }
   .panel-head .hint { font-size:11.5px; color:var(--faint); }
   .panel-body { padding:18px 16px 20px; }
 
-  /* metric cards — taller, airier, colored bottom-border accent */
-  .metrics { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
-  .metric { background:var(--surface); border:1px solid var(--line); border-bottom-width:3px; border-radius:6px; padding:26px 22px 20px; display:flex; flex-direction:column; gap:16px; min-height:218px; box-shadow:0 1px 2px rgba(24,24,27,.03); }
-  .metric.red    { border-bottom-color:var(--accent); }
-  .metric.amber  { border-bottom-color:#f59e0b; }
-  .metric.green  { border-bottom-color:#22c55e; }
-  .metric.gray   { border-bottom-color:#a1a1aa; }
-  .metric .m-top { display:flex; align-items:center; justify-content:space-between; }
-  .metric .m-label { font-size:14px; color:var(--muted); font-weight:600; }
-  .metric .m-ico { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
-  .metric .m-ico svg { width:22px; height:22px; }
+  /* metric cards — icon top-left with circle bg, label below icon */
+  .metrics { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:16px; height:100%; }
+  .metric { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:18px 18px 16px; display:flex; flex-direction:column; gap:8px; min-height:150px; box-shadow:0 1px 3px rgba(24,24,27,.05); }
+  .metric .m-ico { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:0 0 auto; margin-bottom:2px; }
+  .metric .m-ico svg { width:20px; height:20px; }
   .metric .m-ico.red { background:var(--accent-soft); color:var(--accent); }
   .metric .m-ico.green { background:var(--ok-bg); color:var(--ok-fg); }
-  .metric .m-ico.amber { background:var(--warn-bg); color:var(--warn-fg); }
+  .metric .m-ico.amber { background:var(--warn-bg); color:#f59e0b; }
   .metric .m-ico.gray { background:#f4f4f5; color:var(--muted); }
-  .metric .m-value { font-size:36px; font-weight:800; line-height:1.05; letter-spacing:-0.02em; font-family:var(--mono); }
-  .metric .m-value.sm { font-size:23px; line-height:1.25; overflow:hidden; text-overflow:ellipsis; }
-  .metric .m-foot { font-size:13px; color:var(--muted); margin-top:auto; }
+  .metric .m-label { font-size:12.5px; color:var(--muted); font-weight:500; }
+  .metric .m-value { font-size:38px; font-weight:800; line-height:1.05; letter-spacing:-0.02em; }
+  .metric .m-value.sm { font-size:22px; line-height:1.2; font-family:var(--mono); overflow:hidden; text-overflow:ellipsis; }
+  .metric .m-foot { font-size:12px; color:var(--muted); margin-top:auto; }
 
-  /* upload dropzone — red dashed border, light red tint, big cloud */
-  .upload-box { display:block; position:relative; border:2px dashed #ff6b6b; border-radius:6px; min-height:238px; padding:32px 18px; background:linear-gradient(180deg,#fff7f7 0%,#fff2f2 100%); transition:border-color .12s, background .12s; }
+  /* upload dropzone */
+  .upload-box { display:block; position:relative; border:2px dashed #ff6b6b; border-radius:6px; min-height:200px; padding:24px 18px; background:linear-gradient(180deg,#fff7f7 0%,#fff2f2 100%); transition:border-color .12s, background .12s; }
   .upload-box.drag { border-color:var(--accent); background:#fee2e2; }
   .drop-hint { color:var(--muted); font-size:13px; text-align:center; display:flex; flex-direction:column; align-items:center; }
   .drop-hint .cloud { width:56px; height:56px; color:var(--accent); margin-bottom:12px; }
@@ -106,7 +91,6 @@
   .upload-form label.fl { display:block; font-size:11.5px; color:var(--muted); margin-bottom:5px; font-weight:500; }
   .upload-form input[type=text] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:5px; font-size:14px; font-family:inherit; background:var(--surface); }
   .upload-form input[type=text]:focus { outline:none; border-color:var(--fg); }
-  /* force = CSS toggle switch, keeps native checkbox#forceInput hidden but functional */
   .upload-form .cb { font-size:12.5px; color:var(--muted); display:inline-flex; align-items:center; gap:9px; cursor:pointer; user-select:none; }
   .upload-form .cb input[type=checkbox] { position:absolute; opacity:0; width:0; height:0; }
   .upload-form .cb .switch { width:34px; height:20px; border-radius:999px; background:#d4d4d8; position:relative; flex:0 0 auto; transition:background .15s; }
@@ -124,7 +108,7 @@
 
   /* ---- sites table ---- */
   .table-wrap { overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; font-size:14px; min-width:920px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; min-width:820px; }
   thead th { text-align:left; padding:13px 16px; background:#fafafa; border-bottom:1px solid var(--line); font-weight:700; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
   tbody td { text-align:left; padding:15px 16px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
   tbody tr:hover { background:#fafafa; }
@@ -132,24 +116,19 @@
   td.site a { color:var(--accent); text-decoration:none; font-weight:800; font-family:var(--mono); font-size:14px; }
   td.site a:hover { text-decoration:underline; }
   td.mono { font-family:var(--mono); color:var(--muted); white-space:nowrap; font-size:12.5px; }
-  td.srcpath { font-family:var(--mono); color:var(--faint); font-size:11.5px; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:help; }
+  td.srcpath { font-family:var(--mono); color:var(--muted); font-size:11.5px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:help; }
   td.actions { white-space:nowrap; text-align:right; }
   td.actions .row-acts { display:inline-flex; align-items:center; gap:6px; justify-content:flex-end; }
   a.icon-act, button.icon-act { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; text-decoration:none; padding:0; }
   a.icon-act:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
-  button.icon-act.del:hover { border-color:var(--danger-line); color:var(--accent); background:var(--accent-soft); }
+  button.icon-act.del { border-color:var(--danger-line); color:#fff; background:var(--accent); }
+  button.icon-act.del:hover { background:#b91c1c; border-color:#b91c1c; }
   a.icon-act svg, button.icon-act svg { width:15px; height:15px; }
 
-  .pill { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; font-size:11.5px; font-family:var(--mono); font-weight:500; }
-  .pill::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; }
+  .pill { display:inline-flex; align-items:center; padding:3px 10px; border-radius:6px; font-size:12px; font-family:var(--mono); font-weight:600; }
   .pill.ok { background:var(--ok-bg); color:var(--ok-fg); }
   .pill.warn { background:var(--warn-bg); color:var(--warn-fg); }
   .pill.danger { background:var(--danger-bg); color:var(--danger-fg); }
-
-  button.act { font-family:inherit; font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; border:1px solid var(--line); background:var(--surface); color:var(--muted); }
-  button.act:hover { background:#fafafa; }
-  button.danger { border-color:var(--danger-line); color:var(--accent); }
-  button.danger:hover { background:var(--accent-soft); }
 
   .empty { padding:48px; min-height:108px; text-align:center; color:var(--muted); }
   .table-footer { display:flex; align-items:center; justify-content:center; gap:14px; padding:13px 16px; border-top:1px solid var(--line-soft); color:var(--muted); font-size:13px; }
@@ -203,14 +182,6 @@
     <span>共 <b>{{.Total}}</b> 站</span>
     <span>總用量 <b>{{.TotalSize}}</b></span>
     <span>{{.Version}} · {{.GeneratedAt}}</span>
-  </div>
-  <div class="pagehead">
-    <h2 class="title">站台總覽 <span class="cmd">/wez_upload_html</span></h2>
-    <div class="meta">
-      <span><span class="dot"></span>站台常駐 · 不自動下架</span>
-      <span>共 <b>{{.Total}}</b> 站</span>
-      <span>總用量 <b>{{.TotalSize}}</b></span>
-    </div>
   </div>
 
   <div class="grid">
@@ -266,40 +237,32 @@ $ /wez_upload_html --delete my-demo yc</pre>
 
     <!-- metric cards -->
     <div class="metrics">
-      <div class="metric red">
-        <div class="m-top">
-          <span class="m-label">站台總數</span>
-          <span class="m-ico red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-        </div>
+      <div class="metric">
+        <span class="m-ico red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+        <div class="m-label">總站台數</div>
         <div class="m-value">{{.Total}}</div>
-        <div class="m-foot">已上線常駐站台</div>
+        <div class="m-foot">活躍站台</div>
       </div>
-      <div class="metric amber">
-        <div class="m-top">
-          <span class="m-label">總用量</span>
-          <span class="m-ico amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span>
-        </div>
+      <div class="metric">
+        <span class="m-ico amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span>
+        <div class="m-label">總用量</div>
         <div class="m-value">{{.TotalSize}}</div>
-        <div class="m-foot">所有站台磁碟佔用</div>
+        <div class="m-foot">所有站台磁碟加總</div>
       </div>
-      <div class="metric green">
-        <div class="m-top">
-          <span class="m-label">最近上傳</span>
-          <span class="m-ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-        </div>
+      <div class="metric">
+        <span class="m-ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <div class="m-label">最新上傳</div>
         {{if .Sites}}{{with index .Sites 0}}
-        <div class="m-value sm">{{.Name}}</div>
-        <div class="m-foot">{{.Uploader}} · {{.UploadedAt.Format "01-02 15:04"}}</div>
+        <div class="m-value sm" id="latestRelTime" data-ts="{{.UploadedAt.Unix}}">{{.UploadedAt.Format "01-02 15:04"}}</div>
+        <div class="m-foot">{{.Name}} · {{.Uploader}}</div>
         {{end}}{{else}}
         <div class="m-value sm">—</div>
         <div class="m-foot">尚無站台</div>
         {{end}}
       </div>
-      <div class="metric gray">
-        <div class="m-top">
-          <span class="m-label">版本</span>
-          <span class="m-ico gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
-        </div>
+      <div class="metric">
+        <span class="m-ico gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+        <div class="m-label">服務版本</div>
         <div class="m-value sm">{{.Version}}</div>
         <div class="m-foot">{{.GeneratedAt}}</div>
       </div>
@@ -319,7 +282,7 @@ $ /wez_upload_html --delete my-demo yc</pre>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>已上線</th><th>大小</th><th>本機路徑</th><th style="text-align:right">動作</th></tr>
+          <tr><th>Site</th><th>Uploader</th><th>上傳時間</th><th>已上線</th><th>大小</th><th>來源路徑</th><th style="text-align:right">動作</th></tr>
         </thead>
         <tbody>
         {{range .Sites}}
@@ -361,6 +324,25 @@ $ /wez_upload_html --delete my-demo yc</pre>
 </div>
 
 <script>
+// relative time for latest upload
+(function() {
+  const el = document.getElementById('latestRelTime');
+  if (!el) return;
+  const ts = parseInt(el.dataset.ts, 10) * 1000;
+  function relTime() {
+    const diff = Date.now() - ts;
+    const m = Math.floor(diff / 60000);
+    const h = Math.floor(diff / 3600000);
+    const d = Math.floor(diff / 86400000);
+    if (m < 1) return '剛才';
+    if (m < 60) return m + ' 分鐘前';
+    if (h < 24) return h + ' 小時前';
+    return d + ' 天前';
+  }
+  el.textContent = relTime();
+  setInterval(() => { el.textContent = relTime(); }, 30000);
+})();
+
 const dz = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const fileInfo = document.getElementById('fileInfo');

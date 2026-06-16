@@ -482,16 +482,18 @@ func (s *Server) siteKV(w http.ResponseWriter, r *http.Request, site, siteDir, s
 }
 
 type siteSummary struct {
-	Name       string    `json:"name"`
-	Uploader   string    `json:"uploader"`
-	UploadedAt time.Time `json:"uploaded_at"`
-	ExpiresAt  time.Time `json:"expires_at"`
-	DaysLeft   int       `json:"days_left"`
-	DaysOnline int       `json:"days_online"`
-	SizeBytes  int64     `json:"size_bytes"`
-	SizeHuman  string    `json:"size_human"`
-	SrcPath    string    `json:"src_path"`
-	URL        string    `json:"url"`
+	Name         string    `json:"name"`
+	Uploader     string    `json:"uploader"`
+	UploadedAt   time.Time `json:"uploaded_at"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	DaysLeft     int       `json:"days_left"`
+	DaysOnline   int       `json:"days_online"`
+	SizeBytes    int64     `json:"size_bytes"`
+	SizeHuman    string    `json:"size_human"`
+	AvgSizeHuman string    `json:"avg_size_human"`
+	Files        int       `json:"files"`
+	SrcPath      string    `json:"src_path"`
+	URL          string    `json:"url"`
 }
 
 func (s *Server) collectSites() []siteSummary {
@@ -509,17 +511,23 @@ func (s *Server) collectSites() []siteSummary {
 			continue
 		}
 		total := m.SizeBytes + kv.TotalSize(filepath.Join(s.Root, e.Name()))
+		files := m.Files
+		if files <= 0 {
+			files = 1
+		}
 		out = append(out, siteSummary{
-			Name:       m.Site,
-			Uploader:   m.Uploader,
-			UploadedAt: m.UploadedAt,
-			ExpiresAt:  m.ExpiresAt,
-			DaysLeft:   m.DaysLeft(),
-			DaysOnline: m.DaysOnline(),
-			SizeBytes:  total,
-			SizeHuman:  humanize(total),
-			SrcPath:    m.SrcPath,
-			URL:        "/" + m.Site + "/",
+			Name:         m.Site,
+			Uploader:     m.Uploader,
+			UploadedAt:   m.UploadedAt,
+			ExpiresAt:    m.ExpiresAt,
+			DaysLeft:     m.DaysLeft(),
+			DaysOnline:   m.DaysOnline(),
+			SizeBytes:    total,
+			SizeHuman:    humanize(total),
+			AvgSizeHuman: humanize(m.SizeBytes / int64(files)),
+			Files:        m.Files,
+			SrcPath:      m.SrcPath,
+			URL:          "/" + m.Site + "/",
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
