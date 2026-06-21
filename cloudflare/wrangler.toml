@@ -10,8 +10,8 @@ compatibility_date = "2024-09-23"
 #   npx wrangler kv namespace create SITES --preview
 [[kv_namespaces]]
 binding = "SITES"
-id = "REPLACE_WITH_PRODUCTION_KV_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+id = "40b421754ded47ff9dcdacee15580137"
+preview_id = "5e401edc210049bb9a0725013a14ee39"
 
 # ADMIN_TOKEN 不寫在這（避免進 git）。用：
 #   npx wrangler pages secret put ADMIN_TOKEN
