@@ -1,0 +1,13 @@
+{
+  "name": "html-yanchen-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "個人靜態站台 — Cloudflare Pages + Workers KV，移植自 wez-html",
+  "scripts": {
+    "dev": "wrangler pages dev",
+    "deploy": "wrangler pages deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.80.0"
+  }
+}
