@@ -150,6 +150,28 @@
   footer { margin-top:36px; color:var(--faint); font-size:11.5px; padding-top:16px; border-top:1px solid var(--line); }
   footer code.inline { font-size:11.5px; }
 
+  /* ---- management modal ---- */
+  body.modal-open { overflow:hidden; }
+  .modal-backdrop { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:20px; background:rgba(24,24,27,.42); }
+  .modal-backdrop[hidden] { display:none; }
+  .modal { width:min(100%,440px); background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:0 20px 50px rgba(24,24,27,.24); }
+  .modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:20px 20px 0; }
+  .modal-head h2 { margin:0; font-size:18px; line-height:1.35; }
+  .modal-close { width:30px; height:30px; border:0; border-radius:6px; background:#f4f4f5; color:var(--muted); cursor:pointer; font-size:20px; line-height:1; }
+  .modal-close:hover { background:#e4e4e7; color:var(--fg); }
+  .modal-copy { margin:8px 20px 0; color:var(--muted); font-size:13px; line-height:1.6; }
+  .modal-form { padding:18px 20px 20px; }
+  .modal-fields { display:grid; gap:14px; }
+  .modal-field label { display:block; margin-bottom:6px; color:var(--muted); font-size:12px; font-weight:600; }
+  .modal-field input { width:100%; height:40px; padding:0 11px; border:1px solid var(--line); border-radius:6px; color:var(--fg); font:inherit; }
+  .modal-field input:focus { outline:2px solid #fecaca; border-color:var(--accent); }
+  .modal-error { min-height:20px; margin:12px 0 0; color:var(--accent); font-size:12px; line-height:1.5; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .modal-actions button { height:38px; padding:0 14px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--fg); cursor:pointer; font:inherit; font-size:13px; font-weight:600; }
+  .modal-actions .modal-confirm { border-color:var(--fg); background:var(--fg); color:#fff; }
+  .modal-actions .modal-confirm.danger { border-color:var(--accent); background:var(--accent); }
+  .modal-actions .modal-confirm:disabled { cursor:wait; opacity:.65; }
+
   /* ---- responsive ---- */
   @media (max-width: 880px) {
     .grid { grid-template-columns:1fr; }
@@ -338,6 +360,24 @@ $ /wez_upload_html --delete my-demo yc</pre>
   </footer>
 </div>
 
+<div class="modal-backdrop" id="manageModal" hidden>
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h2 id="modalTitle"></h2>
+      <button class="modal-close" type="button" id="modalClose" aria-label="關閉">×</button>
+    </div>
+    <p class="modal-copy" id="modalCopy"></p>
+    <form class="modal-form" id="modalForm">
+      <div class="modal-fields" id="modalFields"></div>
+      <p class="modal-error" id="modalError" role="alert"></p>
+      <div class="modal-actions">
+        <button type="button" id="modalCancel">取消</button>
+        <button class="modal-confirm" type="submit" id="modalConfirm"></button>
+      </div>
+    </form>
+  </section>
+</div>
+
 <script>
 // relative time for latest upload
 (function() {
@@ -450,68 +490,119 @@ function showStatus(cls, msg) {
   statusBox.textContent = msg;
 }
 
-async function deleteSite(name, owner) {
-  const id = prompt('刪除 "' + name + '" — 需 uploader=' + owner + ' 比對。\n輸入你的 identity:');
-  if (!id) return;
-  const res = await fetch('/api/site/' + name, {
-    method:'DELETE',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ identity: id.trim() })
-  });
-  const j = await res.json();
-  if (res.ok) { alert('✓ 已刪除 ' + name); location.reload(); }
-  else alert('⛔ ' + (j.error || res.statusText));
+const manageModal = document.getElementById('manageModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalCopy = document.getElementById('modalCopy');
+const modalForm = document.getElementById('modalForm');
+const modalFields = document.getElementById('modalFields');
+const modalError = document.getElementById('modalError');
+const modalConfirm = document.getElementById('modalConfirm');
+let modalSubmit = null;
+
+function openModal(config) {
+  modalTitle.textContent = config.title;
+  modalCopy.textContent = config.copy;
+  modalFields.innerHTML = config.fields.map(field =>
+    '<div class="modal-field"><label for="modal-' + field.name + '">' + field.label + '</label>' +
+    '<input id="modal-' + field.name + '" name="' + field.name + '" type="text" value="' + escapeHtml(field.value || '') + '"' +
+    (field.placeholder ? ' placeholder="' + escapeHtml(field.placeholder) + '"' : '') +
+    (field.required ? ' required' : '') +
+    (field.pattern ? ' pattern="' + field.pattern + '"' : '') + '></div>'
+  ).join('');
+  modalConfirm.textContent = config.confirmLabel;
+  modalConfirm.classList.toggle('danger', Boolean(config.danger));
+  modalError.textContent = '';
+  modalSubmit = config.submit;
+  manageModal.hidden = false;
+  document.body.classList.add('modal-open');
+  const firstInput = modalFields.querySelector('input');
+  if (firstInput) setTimeout(() => firstInput.focus(), 0);
 }
 
-async function renameSite(name, owner) {
-  const newName = prompt('修改 "' + name + '" 的 site 名稱：', name);
-  if (newName === null) return;
-  const next = newName.trim();
-  if (!/^[a-z0-9-]{1,40}$/.test(next)) {
-    alert('⛔ Site name 只能使用 a-z、0-9、-，長度 1-40');
-    return;
-  }
-  const id = prompt('修改 "' + name + '" — 需 uploader=' + owner + ' 比對。\n輸入你的 identity:');
-  if (!id) return;
+function closeModal() {
+  manageModal.hidden = true;
+  document.body.classList.remove('modal-open');
+  modalSubmit = null;
+}
+
+async function requestJSON(url, options) {
+  const res = await fetch(url, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.hint || res.statusText || '操作失敗');
+  return data;
+}
+
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+manageModal.addEventListener('click', event => {
+  if (event.target === manageModal) closeModal();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !manageModal.hidden) closeModal();
+});
+modalForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!modalSubmit) return;
+  modalError.textContent = '';
+  modalConfirm.disabled = true;
   try {
-    const res = await fetch('/api/site/' + name + '/rename', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ identity: id.trim(), new_site: next })
-    });
-    const j = await res.json();
-    if (res.ok) { alert('✓ 已改名為 ' + j.site); location.reload(); }
-    else if (res.status === 409) { alert('⛔ 名稱已存在，請換一個'); }
-    else alert('⛔ ' + (j.error || res.statusText));
+    await modalSubmit(Object.fromEntries(new FormData(modalForm)));
+    closeModal();
+    location.reload();
   } catch (err) {
-    alert('⛔ ' + err.message);
+    modalError.textContent = err.message || '操作失敗，請再試一次';
+  } finally {
+    modalConfirm.disabled = false;
   }
+});
+
+function deleteSite(name, owner) {
+  openModal({
+    title: '刪除站台',
+    copy: '此操作會永久刪除「' + name + '」的網站檔案與 KV 資料。',
+    confirmLabel: '確認刪除',
+    danger: true,
+    fields: [{ name: 'identity', label: 'Uploader identity (' + owner + ')', placeholder: owner, required: true }],
+    submit: values => requestJSON('/api/site/' + name, {
+      method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ identity: values.identity.trim() })
+    })
+  });
 }
 
-async function editProjectName(button) {
+function renameSite(name, owner) {
+  openModal({
+    title: '修改 Site 名稱',
+    copy: '這會變更站台 URL；網站檔案與 KV 資料會保留。',
+    confirmLabel: '儲存變更',
+    fields: [
+      { name: 'new_site', label: '新 Site 名稱', value: name, required: true, pattern: '[a-z0-9-]{1,40}' },
+      { name: 'identity', label: 'Uploader identity (' + owner + ')', placeholder: owner, required: true }
+    ],
+    submit: values => requestJSON('/api/site/' + name + '/rename', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ identity: values.identity.trim(), new_site: values.new_site.trim() })
+    })
+  });
+}
+
+function editProjectName(button) {
   const name = button.dataset.site;
   const owner = button.dataset.uploader;
-  const projectName = prompt('修改 "' + name + '" 的專案名稱：\n留空可清除。', button.dataset.project || '');
-  if (projectName === null) return;
-  const next = projectName.trim();
-  if (next.length > 80 || /[\r\n]/.test(next)) {
-    alert('⛔ 專案名稱限 80 個字元且必須為單行文字');
-    return;
-  }
-  const id = prompt('修改專案名稱 — 需 uploader=' + owner + ' 比對。\n輸入你的 identity:');
-  if (!id) return;
-  try {
-    const res = await fetch('/api/site/' + name + '/project-name', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ identity: id.trim(), project_name: next })
-    });
-    const j = await res.json();
-    if (res.ok) { location.reload(); }
-    else alert('⛔ ' + (j.error || res.statusText));
-  } catch (err) {
-    alert('⛔ ' + err.message);
-  }
+  openModal({
+    title: '修改專案名稱',
+    copy: '專案名稱只影響列表顯示，不會變更 Site URL。留空可清除。',
+    confirmLabel: '儲存變更',
+    fields: [
+      { name: 'project_name', label: '專案名稱', value: button.dataset.project || '', placeholder: '例如：六月客戶提案' },
+      { name: 'identity', label: 'Uploader identity (' + owner + ')', placeholder: owner, required: true }
+    ],
+    submit: values => {
+      const projectName = values.project_name.trim();
+      if (projectName.length > 80 || /[\r\n]/.test(projectName)) throw new Error('專案名稱限 80 個字元且必須為單行文字');
+      return requestJSON('/api/site/' + name + '/project-name', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ identity: values.identity.trim(), project_name: projectName })
+      });
+    }
+  });
 }
 </script>
 </body>
