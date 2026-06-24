@@ -34,8 +34,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("parse index tmpl: %v", err)
 	}
+	faviconBytes, err := web.FS.ReadFile("favicon.svg")
+	if err != nil {
+		log.Fatalf("embed favicon: %v", err)
+	}
 
-	srv := handler.New(*root, *publicURL, tmpl, "")
+	srv := handler.New(*root, *publicURL, tmpl, string(faviconBytes))
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 

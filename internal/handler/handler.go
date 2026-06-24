@@ -38,11 +38,11 @@ type Server struct {
 	Root       string
 	PublicURL  string
 	IndexTmpl  *template.Template
-	UploadHTML string
+	FaviconSVG string
 }
 
-func New(root, publicURL string, indexTmpl *template.Template, uploadHTML string) *Server {
-	return &Server{Root: root, PublicURL: publicURL, IndexTmpl: indexTmpl, UploadHTML: uploadHTML}
+func New(root, publicURL string, indexTmpl *template.Template, faviconSVG string) *Server {
+	return &Server{Root: root, PublicURL: publicURL, IndexTmpl: indexTmpl, FaviconSVG: faviconSVG}
 }
 
 func (s *Server) Routes(mux *http.ServeMux) {
@@ -50,7 +50,24 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/upload-single", s.uploadSingle)
 	mux.HandleFunc("/api/sites", s.listSites)
 	mux.HandleFunc("/api/site/", s.siteAPI)
+	mux.HandleFunc("/favicon.svg", s.favicon)
 	mux.HandleFunc("/", s.root)
+}
+
+func (s *Server) favicon(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		writeErr(w, http.StatusMethodNotAllowed, "GET only")
+		return
+	}
+	if s.FaviconSVG == "" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	if r.Method == http.MethodGet {
+		_, _ = io.WriteString(w, s.FaviconSVG)
+	}
 }
 
 // /api/site/<name>            DELETE
