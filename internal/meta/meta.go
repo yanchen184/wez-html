@@ -11,15 +11,16 @@ import (
 const FileName = ".meta.json"
 
 type Meta struct {
-	Site       string    `json:"site"`
-	Uploader   string    `json:"uploader"`
-	UploadedAt time.Time `json:"uploaded_at"`
-	TTLDays    int       `json:"ttl_days"`
-	ExpiresAt  time.Time `json:"expires_at"`
-	Src        string    `json:"src,omitempty"`
-	SrcPath    string    `json:"src_path,omitempty"` // 上傳者本機原始絕對路徑(CLI 才填得到;web 拖拉拿不到)
-	SizeBytes  int64     `json:"size_bytes"`
-	Files      int       `json:"files"`
+	ProjectName string    `json:"project_name,omitempty"`
+	Site        string    `json:"site"`
+	Uploader    string    `json:"uploader"`
+	UploadedAt  time.Time `json:"uploaded_at"`
+	TTLDays     int       `json:"ttl_days"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	Src         string    `json:"src,omitempty"`
+	SrcPath     string    `json:"src_path,omitempty"` // 上傳者本機原始絕對路徑(CLI 才填得到;web 拖拉拿不到)
+	SizeBytes   int64     `json:"size_bytes"`
+	Files       int       `json:"files"`
 }
 
 func Path(root, site string) string {

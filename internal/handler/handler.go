@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/yanchen184/wez-html/internal/archive"
 	"github.com/yanchen184/wez-html/internal/kv"
@@ -22,9 +23,10 @@ import (
 )
 
 const (
-	MinTTL     = 1
-	MaxTTL     = 180
-	DefaultTTL = 30 // TTL 已停用,僅作為沒帶 ttl 時的記錄預設值
+	MinTTL              = 1
+	MaxTTL              = 180
+	DefaultTTL          = 30 // TTL 已停用,僅作為沒帶 ttl 時的記錄預設值
+	MaxProjectNameRunes = 80
 )
 
 var (
@@ -53,6 +55,8 @@ func (s *Server) Routes(mux *http.ServeMux) {
 
 // /api/site/<name>            DELETE
 // /api/site/<name>/extend     POST
+// /api/site/<name>/rename       POST
+// /api/site/<name>/project-name POST
 func (s *Server) siteAPI(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/site/")
 	parts := strings.Split(rest, "/")
@@ -71,6 +75,14 @@ func (s *Server) siteAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(parts) == 2 && parts[1] == "extend" && r.Method == http.MethodPost {
 		s.extendSite(w, r, site)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "rename" && r.Method == http.MethodPost {
+		s.renameSite(w, r, site)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "project-name" && r.Method == http.MethodPost {
+		s.updateProjectName(w, r, site)
 		return
 	}
 	http.NotFound(w, r)
@@ -96,6 +108,11 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	if !identityRe.MatchString(identity) {
 		writeErr(w, 400, "identity must match ^[a-zA-Z0-9_-]{1,20}$")
+		return
+	}
+	projectName, err := normalizeProjectName(r.FormValue("project_name"))
+	if err != nil {
+		writeErr(w, 400, err.Error())
 		return
 	}
 	// TTL 概念已停用(站台常駐,不自動下架)。仍接收 ttl 以維持舊 CLI 相容,
@@ -142,15 +159,16 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	src := r.FormValue("src")
 	now := time.Now()
 	m := &meta.Meta{
-		Site:       site,
-		Uploader:   identity,
-		UploadedAt: now,
-		TTLDays:    ttl,
-		ExpiresAt:  meta.ComputeExpiresAt(ttl),
-		Src:        src,
-		SrcPath:    strings.TrimSpace(r.FormValue("src_path")),
-		SizeBytes:  st.SizeBytes,
-		Files:      st.Files,
+		ProjectName: projectName,
+		Site:        site,
+		Uploader:    identity,
+		UploadedAt:  now,
+		TTLDays:     ttl,
+		ExpiresAt:   meta.ComputeExpiresAt(ttl),
+		Src:         src,
+		SrcPath:     strings.TrimSpace(r.FormValue("src_path")),
+		SizeBytes:   st.SizeBytes,
+		Files:       st.Files,
 	}
 	mb, _ := json.MarshalIndent(m, "", "  ")
 	if err := os.WriteFile(filepath.Join(staging, meta.FileName), mb, 0o644); err != nil {
@@ -201,6 +219,11 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 	}
 	if !identityRe.MatchString(identity) {
 		writeErr(w, 400, "identity must match ^[a-zA-Z0-9_-]{1,20}$")
+		return
+	}
+	projectName, err := normalizeProjectName(r.FormValue("project_name"))
+	if err != nil {
+		writeErr(w, 400, err.Error())
 		return
 	}
 	// TTL 概念已停用(站台常駐,不自動下架)。仍接收 ttl 以維持舊 CLI 相容,
@@ -267,15 +290,16 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now()
 	m := &meta.Meta{
-		Site:       site,
-		Uploader:   identity,
-		UploadedAt: now,
-		TTLDays:    ttl,
-		ExpiresAt:  meta.ComputeExpiresAt(ttl),
-		Src:        fh.Filename,
-		SrcPath:    strings.TrimSpace(r.FormValue("src_path")), // 瀏覽器拖拉一般為空(拿不到絕對路徑)
-		SizeBytes:  n,
-		Files:      1,
+		ProjectName: projectName,
+		Site:        site,
+		Uploader:    identity,
+		UploadedAt:  now,
+		TTLDays:     ttl,
+		ExpiresAt:   meta.ComputeExpiresAt(ttl),
+		Src:         fh.Filename,
+		SrcPath:     strings.TrimSpace(r.FormValue("src_path")), // 瀏覽器拖拉一般為空(拿不到絕對路徑)
+		SizeBytes:   n,
+		Files:       1,
 	}
 	mb, _ := json.MarshalIndent(m, "", "  ")
 	if err := os.WriteFile(filepath.Join(staging, meta.FileName), mb, 0o644); err != nil {
@@ -335,6 +359,140 @@ func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, site string)
 	writeJSON(w, 200, map[string]any{"status": "deleted", "site": site})
 }
 
+func (s *Server) renameSite(w http.ResponseWriter, r *http.Request, site string) {
+	var body struct {
+		Identity string `json:"identity"`
+		NewSite  string `json:"new_site"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, 400, "bad json")
+		return
+	}
+	body.Identity = strings.TrimSpace(body.Identity)
+	body.NewSite = strings.TrimSpace(body.NewSite)
+	if !identityRe.MatchString(body.Identity) {
+		writeErr(w, 400, "bad identity")
+		return
+	}
+	if !siteRe.MatchString(body.NewSite) {
+		writeErr(w, 400, "new_site must match ^[a-z0-9-]{1,40}$")
+		return
+	}
+
+	m, err := meta.Load(s.Root, site)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeErr(w, 404, "not found")
+			return
+		}
+		writeErr(w, 500, err.Error())
+		return
+	}
+	if m.Uploader != body.Identity {
+		writeErr(w, 403, fmt.Sprintf("only original uploader (%s) can rename", m.Uploader))
+		return
+	}
+	if body.NewSite == site {
+		writeJSON(w, 200, map[string]any{
+			"status": "ok",
+			"site":   site,
+			"url":    fmt.Sprintf("%s/%s/", s.PublicURL, site),
+		})
+		return
+	}
+
+	oldDir := filepath.Join(s.Root, site)
+	newDir := filepath.Join(s.Root, body.NewSite)
+	if _, err := os.Stat(newDir); err == nil {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"status": "conflict",
+			"site":   body.NewSite,
+			"hint":   "pick another site name",
+		})
+		return
+	} else if !errors.Is(err, os.ErrNotExist) {
+		writeErr(w, 500, err.Error())
+		return
+	}
+
+	if err := os.Rename(oldDir, newDir); err != nil {
+		writeErr(w, 500, fmt.Sprintf("rename site: %v", err))
+		return
+	}
+	m.Site = body.NewSite
+	if err := meta.Save(s.Root, m); err != nil {
+		_ = os.Rename(newDir, oldDir)
+		writeErr(w, 500, fmt.Sprintf("save renamed meta: %v", err))
+		return
+	}
+
+	log.Printf("rename: site=%s new_site=%s by=%s", site, body.NewSite, body.Identity)
+	writeJSON(w, 200, map[string]any{
+		"status": "ok",
+		"site":   body.NewSite,
+		"url":    fmt.Sprintf("%s/%s/", s.PublicURL, body.NewSite),
+	})
+}
+
+func (s *Server) updateProjectName(w http.ResponseWriter, r *http.Request, site string) {
+	var body struct {
+		Identity    string `json:"identity"`
+		ProjectName string `json:"project_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, 400, "bad json")
+		return
+	}
+	body.Identity = strings.TrimSpace(body.Identity)
+	if !identityRe.MatchString(body.Identity) {
+		writeErr(w, 400, "bad identity")
+		return
+	}
+	projectName, err := normalizeProjectName(body.ProjectName)
+	if err != nil {
+		writeErr(w, 400, err.Error())
+		return
+	}
+
+	m, err := meta.Load(s.Root, site)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeErr(w, 404, "not found")
+			return
+		}
+		writeErr(w, 500, err.Error())
+		return
+	}
+	if m.Uploader != body.Identity {
+		writeErr(w, 403, fmt.Sprintf("only original uploader (%s) can update project name", m.Uploader))
+		return
+	}
+
+	m.ProjectName = projectName
+	if err := meta.Save(s.Root, m); err != nil {
+		writeErr(w, 500, fmt.Sprintf("save project name: %v", err))
+		return
+	}
+
+	log.Printf("project-name: site=%s by=%s", site, body.Identity)
+	writeJSON(w, 200, map[string]any{
+		"status":       "ok",
+		"site":         site,
+		"project_name": projectName,
+	})
+}
+
+func normalizeProjectName(raw string) (string, error) {
+	projectName := strings.TrimSpace(raw)
+	if strings.ContainsAny(projectName, "\r\n") {
+		return "", errors.New("project_name must be a single line")
+	}
+	if utf8.RuneCountInString(projectName) > MaxProjectNameRunes {
+		return "", fmt.Errorf("project_name must be at most %d characters", MaxProjectNameRunes)
+	}
+	return projectName, nil
+}
+
 func (s *Server) extendSite(w http.ResponseWriter, r *http.Request, site string) {
 	var body struct {
 		Identity string `json:"identity"`
@@ -381,8 +539,9 @@ func (s *Server) extendSite(w http.ResponseWriter, r *http.Request, site string)
 }
 
 // siteKV: 站台級 KV CRUD。
-//   subpath="" 或 "/"           → GET list
-//   subpath="/<key>"            → GET / PUT / DELETE
+//
+//	subpath="" 或 "/"           → GET list
+//	subpath="/<key>"            → GET / PUT / DELETE
 func (s *Server) siteKV(w http.ResponseWriter, r *http.Request, site, siteDir, subpath string) {
 	subpath = strings.TrimPrefix(subpath, "/")
 	// CORS for browser fetch from same origin (內網信任,放寬一點方便嵌入別處)
@@ -482,6 +641,7 @@ func (s *Server) siteKV(w http.ResponseWriter, r *http.Request, site, siteDir, s
 }
 
 type siteSummary struct {
+	ProjectName  string    `json:"project_name"`
 	Name         string    `json:"name"`
 	Uploader     string    `json:"uploader"`
 	UploadedAt   time.Time `json:"uploaded_at"`
@@ -516,6 +676,7 @@ func (s *Server) collectSites() []siteSummary {
 			files = 1
 		}
 		out = append(out, siteSummary{
+			ProjectName:  m.ProjectName,
 			Name:         m.Site,
 			Uploader:     m.Uploader,
 			UploadedAt:   m.UploadedAt,
@@ -564,11 +725,11 @@ func (s *Server) indexPage(w http.ResponseWriter, r *http.Request) {
 		total += x.SizeBytes
 	}
 	data := map[string]any{
-		"Sites":      sites,
-		"Total":      len(sites),
-		"TotalSize":  humanize(total),
+		"Sites":       sites,
+		"Total":       len(sites),
+		"TotalSize":   humanize(total),
 		"GeneratedAt": time.Now().Format("2006-01-02 15:04:05"),
-		"Version":    "v1.0.0",
+		"Version":     "v1.0.0",
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.IndexTmpl.Execute(w, data); err != nil {

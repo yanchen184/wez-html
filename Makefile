@@ -1,4 +1,4 @@
-.PHONY: build build-linux build-cli build-server clean run-local deploy install-cli
+.PHONY: build build-linux build-windows build-cli-all build-cli build-server clean run-local deploy install-cli
 
 VERSION := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BIN_DIR := bin
@@ -28,6 +28,22 @@ build-linux:
 	@mkdir -p $(BIN_DIR)
 	GOOS=linux GOARCH=$(GOARCH) go build -o $(BIN_DIR)/wez-html-server-linux ./cmd/server
 	GOOS=linux GOARCH=$(GOARCH) go build -o $(BIN_DIR)/wez_upload_html-linux ./cmd/cli
+
+# Cross-compile the CLI for Windows (amd64 + arm64)。CLI 純 Go、無平台相依路徑,
+# 給 Windows 同事推資料夾用。產物副檔名一定要 .exe。
+build-windows:
+	@mkdir -p $(BIN_DIR)
+	GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/wez_upload_html-windows-amd64.exe ./cmd/cli
+	GOOS=windows GOARCH=arm64 go build -o $(BIN_DIR)/wez_upload_html-windows-arm64.exe ./cmd/cli
+
+# 一次出齊三平台的 CLI(mac 原生 + linux + windows),發 binary 給同事用
+build-cli-all: build-cli
+	@mkdir -p $(BIN_DIR)
+	GOOS=linux   GOARCH=amd64 go build -o $(BIN_DIR)/wez_upload_html-linux-amd64 ./cmd/cli
+	GOOS=linux   GOARCH=arm64 go build -o $(BIN_DIR)/wez_upload_html-linux-arm64 ./cmd/cli
+	GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/wez_upload_html-windows-amd64.exe ./cmd/cli
+	GOOS=windows GOARCH=arm64 go build -o $(BIN_DIR)/wez_upload_html-windows-arm64.exe ./cmd/cli
+	@echo "✓ CLI built for mac(native) + linux(amd64/arm64) + windows(amd64/arm64) in $(BIN_DIR)/"
 
 # Run server locally for dev (uses ./.wez-html-data as root)
 run-local: build-server
