@@ -147,6 +147,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	siteDir := filepath.Join(s.Root, site)
+	var existingMeta *meta.Meta
 	if _, err := os.Stat(siteDir); err == nil {
 		if !force {
 			existing, _ := meta.Load(s.Root, site)
@@ -162,6 +163,12 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, resp)
 			return
 		}
+		existingMeta, _ = meta.Load(s.Root, site)
+	}
+
+	// force 覆蓋時,若新上傳未帶 project_name,沿用舊站台的設定
+	if projectName == "" && existingMeta != nil {
+		projectName = existingMeta.ProjectName
 	}
 
 	staging := siteDir + ".staging"
@@ -268,6 +275,7 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	siteDir := filepath.Join(s.Root, site)
+	var existingMeta *meta.Meta
 	if _, err := os.Stat(siteDir); err == nil {
 		if !force {
 			existing, _ := meta.Load(s.Root, site)
@@ -283,6 +291,12 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, resp)
 			return
 		}
+		existingMeta, _ = meta.Load(s.Root, site)
+	}
+
+	// force 覆蓋時,若新上傳未帶 project_name,沿用舊站台的設定
+	if projectName == "" && existingMeta != nil {
+		projectName = existingMeta.ProjectName
 	}
 
 	staging := siteDir + ".staging"
