@@ -39,7 +39,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host(`html.wezoomtek.com`)
+    - match: Host(`html.wezoomtek.com.tw`)
       kind: Rule
       services:
         - name: wez-html-ext
