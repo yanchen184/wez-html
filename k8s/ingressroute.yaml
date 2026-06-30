@@ -1,0 +1,46 @@
+# wez-html-server 對外網域路由 — 接 wez k3s Traefik
+# 後端是 wez host 上的 systemd binary(10.1.1.7:8090),用無 selector Service + 手動 EndpointSlice 引進叢集
+apiVersion: v1
+kind: Service
+metadata:
+  name: wez-html-ext
+  namespace: default
+spec:
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090
+      protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: wez-html-ext-1
+  namespace: default
+  labels:
+    kubernetes.io/service-name: wez-html-ext
+addressType: IPv4
+ports:
+  - name: http
+    port: 8090
+    protocol: TCP
+endpoints:
+  - addresses:
+      - 10.1.1.7
+    conditions:
+      ready: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: wez-html
+  namespace: default
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`html.wezoomtek.com`)
+      kind: Rule
+      services:
+        - name: wez-html-ext
+          port: 8090
