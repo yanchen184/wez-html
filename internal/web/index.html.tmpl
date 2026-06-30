@@ -317,7 +317,7 @@ $ /wez_upload_html --delete my-demo yc</pre>
         <thead>
           <tr><th>專案名稱</th><th>Site</th><th>Uploader</th><th>上傳時間</th><th>已上線</th><th>大小</th><th>來源路徑</th><th style="text-align:right">動作</th></tr>
         </thead>
-        <tbody>
+        <tbody id="sitesBody">
         {{range .Sites}}
           <tr data-site="{{.Name}}">
             <td class="project" title="{{.ProjectName}}"><span class="project-name">{{if .ProjectName}}{{.ProjectName}}{{else}}—{{end}}</span><button class="project-edit" data-site="{{.Name}}" data-uploader="{{.Uploader}}" data-project="{{.ProjectName}}" onclick="editProjectName(this)" title="修改專案名稱" aria-label="修改專案名稱"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>
@@ -347,8 +347,8 @@ $ /wez_upload_html --delete my-demo yc</pre>
     </div>
     <div class="table-footer">
       <span>共 <b>{{.Total}}</b> 站 / {{.TotalSize}}</span>
-      <span class="pager"><button type="button" aria-label="上一頁">‹</button><button type="button" class="active">1</button><button type="button" aria-label="下一頁">›</button></span>
-      <span class="page-size">每頁 20 筆</span>
+      <span class="pager" id="pager"></span>
+      <span class="page-size">每頁 <b id="pageSizeLabel">20</b> 筆</span>
     </div>
     {{else}}
     <div class="empty">還沒有站台。用上方拖檔或 <code class="inline">/wez_upload_html</code> 上傳第一個。</div>
@@ -396,6 +396,39 @@ $ /wez_upload_html --delete my-demo yc</pre>
   }
   el.textContent = relTime();
   setInterval(() => { el.textContent = relTime(); }, 30000);
+})();
+
+// client-side pagination for sites table
+(function() {
+  const PAGE_SIZE = 20;
+  const body = document.getElementById('sitesBody');
+  const pager = document.getElementById('pager');
+  if (!body || !pager) return;
+  const rows = Array.from(body.querySelectorAll('tr'));
+  const totalPages = Math.ceil(rows.length / PAGE_SIZE);
+  let current = 1;
+
+  function render() {
+    const start = (current - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    rows.forEach((tr, i) => { tr.style.display = (i >= start && i < end) ? '' : 'none'; });
+    pager.innerHTML = '';
+    if (totalPages <= 1) return;
+    const mk = (label, page, opts = {}) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      if (opts.active) b.className = 'active';
+      if (opts.disabled) b.disabled = true;
+      if (opts.aria) b.setAttribute('aria-label', opts.aria);
+      if (!opts.disabled && !opts.active) b.addEventListener('click', () => { current = page; render(); });
+      pager.appendChild(b);
+    };
+    mk('‹', current - 1, { disabled: current === 1, aria: '上一頁' });
+    for (let p = 1; p <= totalPages; p++) mk(String(p), p, { active: p === current });
+    mk('›', current + 1, { disabled: current === totalPages, aria: '下一頁' });
+  }
+  render();
 })();
 
 const dz = document.getElementById('dropZone');
