@@ -1,4 +1,4 @@
-.PHONY: build build-linux build-windows build-cli-all build-cli build-server clean run-local deploy install-cli
+.PHONY: build build-linux build-windows build-cli-all build-cli build-server clean run-local deploy deploy-cf deploy-all install-cli
 
 VERSION := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BIN_DIR := bin
@@ -77,6 +77,23 @@ deploy: build-linux
 	         sudo systemctl restart wez-html && \
 	         sleep 2 && \
 	         curl -sf http://127.0.0.1:8090/api/sites > /dev/null && echo "✓ wez-html up"'
+
+# Deploy Cloudflare Pages (public/ 靜態皮 + functions/ 一起推)
+# wrangler.toml 已設 pages_build_output_dir=public、functions/ 同層自動抓。
+# 需先登入(npx wrangler login)或設 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID。
+# ADMIN_TOKEN 走 secret,不在這推(npx wrangler pages secret put ADMIN_TOKEN)。
+deploy-cf:
+	@echo "→ deploy Cloudflare Pages: html-yanchen-app (production branch=cloudflare-pages)"
+	@# 這專案的 production branch 是 cloudflare-pages(不是 main);
+	@# 用它才會進 production(html.yanchen.app + ADMIN_TOKEN secret 所在),否則落進 Preview。
+	cd cloudflare && npx wrangler pages deploy --branch cloudflare-pages --commit-dirty=true
+	@echo "✓ 驗一下:curl -s https://html.yanchen.app/api/sites | head -c 200"
+
+# 一鍵雙推:wez 內網(需在內網跑) + Cloudflare。
+# 兩端 embed 同一份 internal/web/index.html 皮 → 功能一致。
+#   make deploy-all WEZ_HOST=wez WEZ_USER=ycchen
+deploy-all: deploy deploy-cf
+	@echo "✓ 雙推完成:wez(http://$(WEZ_PUBLIC_HOST):8090) + https://html.yanchen.app"
 
 clean:
 	rm -rf $(BIN_DIR) .wez-html-data

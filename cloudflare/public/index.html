@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>wez-html · 內網靜態站台</title>
+<title>wez-html · 靜態站台代管</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
   :root {
@@ -193,7 +193,7 @@
       wez<span class="accent">-</span>html
       <span class="badge">內部服務</span>
     </span>
-    <span class="opsum">內網靜態站台 · 已上線 <b>{{.Total}}</b> 站 · 用量 <b>{{.TotalSize}}</b> · {{.Version}}</span>
+    <span class="opsum">靜態站台代管 · 已上線 <b id="opTotal">–</b> 站 · 用量 <b id="opSize">–</b> · <span id="opVersion"></span></span>
     <nav class="topnav">
       <a href="#upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>使用說明</a>
       <a href="#cli"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 9 12 4 17"/><line x1="12" y1="17" x2="20" y2="17"/></svg>CLI 指令</a>
@@ -205,12 +205,12 @@
 
 <div class="wrap">
   <p class="intro">
-    把 <code class="inline">.html</code> 單檔或 <code class="inline">.tar.gz</code> 整包透過 <code class="inline">/wez_upload_html</code> 或下方拖檔上傳,即可在內網取得一個常駐網址 — 永久代管,不自動下架。
+    把 <code class="inline">.html</code> 單檔透過 <code class="inline">/wez_upload_html</code> 或下方拖檔上傳,即可取得一個常駐網址 — 永久代管,不自動下架。
   </p>
   <div class="statline">
-    <span>共 <b>{{.Total}}</b> 站</span>
-    <span>總用量 <b>{{.TotalSize}}</b></span>
-    <span>{{.Version}} · {{.GeneratedAt}}</span>
+    <span>共 <b id="statTotal">–</b> 站</span>
+    <span>總用量 <b id="statSize">–</b></span>
+    <span><span id="statVersion"></span> · <span id="statGenerated"></span></span>
   </div>
 
   <div class="grid">
@@ -221,16 +221,16 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           拖檔上傳
         </h2>
-        <span class="hint">.html 單檔 · .tar.gz 整包</span>
+        <span class="hint">.html 單檔</span>
       </div>
       <div class="panel-body">
         <label class="upload-box" id="dropZone" for="fileInput">
           <div class="drop-hint">
             <svg class="cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l-4-4-4 4"/><path d="M12 12v9"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-            <div>拖 <b>.html</b> 單檔、或 <b>.tar.gz</b> 整包到這裡</div>
-            <div class="chips"><span>.html</span><span>.tar.gz</span><span>.tgz</span></div>
+            <div>拖 <b>.html</b> 單檔到這裡</div>
+            <div class="chips"><span>.html</span><span>.htm</span></div>
             <span class="pick">或點此選擇檔案</span>
-            <input type="file" id="fileInput" accept=".html,.htm,.tar.gz,.tgz,text/html,application/gzip">
+            <input type="file" id="fileInput" accept=".html,.htm,text/html">
             <div id="fileInfo"></div>
           </div>
         </label>
@@ -261,8 +261,7 @@
         <details class="help" id="cli">
           <summary>偏好 CLI?用 <code class="inline">/wez_upload_html</code></summary>
 <pre>$ /wez_upload_html ./個人賽.html yc           # 單檔自動包成資料夾
-$ /wez_upload_html ./frontend yc
-$ /wez_upload_html ./frontend yc --force
+$ /wez_upload_html ./個人賽.html yc --force
 $ /wez_upload_html --delete my-demo yc</pre>
         </details>
       </div>
@@ -273,31 +272,26 @@ $ /wez_upload_html --delete my-demo yc</pre>
       <div class="metric">
         <span class="m-ico red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
         <div class="m-label">總站台數</div>
-        <div class="m-value">{{.Total}}</div>
+        <div class="m-value" id="mTotal">–</div>
         <div class="m-foot">活躍站台</div>
       </div>
       <div class="metric">
         <span class="m-ico amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span>
         <div class="m-label">總用量</div>
-        <div class="m-value">{{.TotalSize}}</div>
-        <div class="m-foot">所有站台磁碟加總</div>
+        <div class="m-value" id="mSize">–</div>
+        <div class="m-foot">所有站台加總</div>
       </div>
       <div class="metric">
         <span class="m-ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
         <div class="m-label">最新上傳</div>
-        {{if .Sites}}{{with index .Sites 0}}
-        <div class="m-value sm" id="latestRelTime" data-ts="{{.UploadedAt.Unix}}">{{.UploadedAt.Format "01-02 15:04"}}</div>
-        <div class="m-foot">{{.Name}} · {{.Uploader}}</div>
-        {{end}}{{else}}
-        <div class="m-value sm">—</div>
-        <div class="m-foot">尚無站台</div>
-        {{end}}
+        <div class="m-value sm" id="mLatest">–</div>
+        <div class="m-foot" id="mLatestFoot">尚無站台</div>
       </div>
       <div class="metric">
         <span class="m-ico gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
         <div class="m-label">服務版本</div>
-        <div class="m-value sm">{{.Version}}</div>
-        <div class="m-foot">{{.GeneratedAt}}</div>
+        <div class="m-value sm" id="mVersion">–</div>
+        <div class="m-foot" id="mGenerated"></div>
       </div>
     </div>
   </div>
@@ -309,54 +303,26 @@ $ /wez_upload_html --delete my-demo yc</pre>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         目前的站台
       </h2>
-      <span class="hint">{{.Total}} 站</span>
+      <span class="hint"><span id="tableCount">–</span> 站</span>
     </div>
-    {{if .Sites}}
-    <div class="table-wrap">
+    <div class="table-wrap" id="tableWrap" hidden>
       <table>
         <thead>
           <tr><th>專案名稱</th><th>Site</th><th>Uploader</th><th>上傳時間</th><th>已上線</th><th>大小</th><th>來源路徑</th><th style="text-align:right">動作</th></tr>
         </thead>
-        <tbody id="sitesBody">
-        {{range .Sites}}
-          <tr data-site="{{.Name}}">
-            <td class="project" title="{{.ProjectName}}"><span class="project-name">{{if .ProjectName}}{{.ProjectName}}{{else}}—{{end}}</span><button class="project-edit" data-site="{{.Name}}" data-uploader="{{.Uploader}}" data-project="{{.ProjectName}}" onclick="editProjectName(this)" title="修改專案名稱" aria-label="修改專案名稱"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>
-            <td class="site"><a href="/{{.Name}}/" target="_blank">{{.Name}}</a></td>
-            <td class="mono">{{.Uploader}}</td>
-            <td class="mono">{{.UploadedAt.Format "01-02 15:04"}}</td>
-            <td><span class="pill ok">{{.DaysOnline}}d</span></td>
-            <td class="mono">{{.SizeHuman}}</td>
-            <td class="srcpath" title="{{.SrcPath}}">{{if .SrcPath}}{{.SrcPath}}{{else}}—{{end}}</td>
-            <td class="actions">
-              <span class="row-acts">
-                <a class="icon-act" href="/{{.Name}}/" target="_blank" title="開啟站台" aria-label="開啟站台">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>
-                <button class="icon-act" onclick="renameSite('{{.Name}}','{{.Uploader}}')" title="改名" aria-label="改名">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                </button>
-                <button class="icon-act del" onclick="deleteSite('{{.Name}}','{{.Uploader}}')" title="刪除站台" aria-label="刪除站台">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                </button>
-              </span>
-            </td>
-          </tr>
-        {{end}}
-        </tbody>
+        <tbody id="sitesBody"></tbody>
       </table>
     </div>
-    <div class="table-footer">
-      <span>共 <b>{{.Total}}</b> 站 / {{.TotalSize}}</span>
+    <div class="table-footer" id="tableFooter" hidden>
+      <span>共 <b id="footTotal">–</b> 站 / <span id="footSize">–</span></span>
       <span class="pager" id="pager"></span>
       <span class="page-size">每頁 <b id="pageSizeLabel">20</b> 筆</span>
     </div>
-    {{else}}
-    <div class="empty">還沒有站台。用上方拖檔或 <code class="inline">/wez_upload_html</code> 上傳第一個。</div>
-    {{end}}
+    <div class="empty" id="emptyState" hidden>還沒有站台。用上方拖檔或 <code class="inline">/wez_upload_html</code> 上傳第一個。</div>
   </div>
 
   <footer>
-    wez-html {{.Version}} · 內部 demo 平台 · 不適合 production hosting · 來源 <code class="inline">github.com/yanchen184/wez-html</code>
+    wez-html <span id="footVersion"></span> · 靜態代管平台 · 來源 <code class="inline">github.com/yanchen184/wez-html</code>
   </footer>
 </div>
 
@@ -377,60 +343,139 @@ $ /wez_upload_html --delete my-demo yc</pre>
     </form>
   </section>
 </div>
-
 <script>
-// relative time for latest upload
-(function() {
-  const el = document.getElementById('latestRelTime');
-  if (!el) return;
-  const ts = parseInt(el.dataset.ts, 10) * 1000;
-  function relTime() {
-    const diff = Date.now() - ts;
-    const m = Math.floor(diff / 60000);
-    const h = Math.floor(diff / 3600000);
-    const d = Math.floor(diff / 86400000);
-    if (m < 1) return '剛才';
-    if (m < 60) return m + ' 分鐘前';
-    if (h < 24) return h + ' 小時前';
-    return d + ' 天前';
-  }
-  el.textContent = relTime();
-  setInterval(() => { el.textContent = relTime(); }, 30000);
-})();
+// wez-html 單一源皮:Go 端 embed、Cloudflare Pages 端當 public/index.html。
+// 所有站台資料一律前端 fetch /api/sites 後渲染,兩端共用同一份皮。
+const VERSION = "v1.2.0";
+const PAGE_SIZE = 20;
+let allSites = [];
+let currentPage = 1;
 
-// client-side pagination for sites table
-(function() {
-  const PAGE_SIZE = 20;
+document.getElementById('opVersion').textContent = VERSION;
+document.getElementById('statVersion').textContent = VERSION;
+document.getElementById('mVersion').textContent = VERSION;
+document.getElementById('footVersion').textContent = VERSION;
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+function humanSize(n) {
+  if (n < 1024) return n + 'B';
+  const u = ['K','M','G']; let i=-1;
+  do { n/=1024; i++; } while (n >= 1024 && i < u.length-1);
+  return n.toFixed(1) + u[i];
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function relTime(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff/60000), h = Math.floor(diff/3600000), dd = Math.floor(diff/86400000);
+  if (m < 1) return '剛才';
+  if (m < 60) return m + ' 分鐘前';
+  if (h < 24) return h + ' 小時前';
+  return dd + ' 天前';
+}
+
+const EDIT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const OPEN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+const DEL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+
+function rowHtml(s) {
+  const pn = s.project_name || '';
+  return '<tr data-site="' + escapeAttr(s.name) + '">' +
+    '<td class="project" title="' + escapeAttr(pn) + '"><span class="project-name">' + (pn ? escapeHtml(pn) : '—') + '</span>' +
+      '<button class="project-edit" data-site="' + escapeAttr(s.name) + '" data-uploader="' + escapeAttr(s.uploader) + '" data-project="' + escapeAttr(pn) + '" onclick="editProjectName(this)" title="修改專案名稱" aria-label="修改專案名稱">' + EDIT_SVG + '</button></td>' +
+    '<td class="site"><a href="/' + encodeURIComponent(s.name) + '/" target="_blank">' + escapeHtml(s.name) + '</a></td>' +
+    '<td class="mono">' + escapeHtml(s.uploader) + '</td>' +
+    '<td class="mono">' + fmtTime(s.uploaded_at) + '</td>' +
+    '<td><span class="pill ok">' + (s.days_online || 0) + 'd</span></td>' +
+    '<td class="mono">' + escapeHtml(s.size_human || humanSize(s.size_bytes || 0)) + '</td>' +
+    '<td class="srcpath" title="' + escapeAttr(s.src_path || '') + '">' + (s.src_path ? escapeHtml(s.src_path) : '—') + '</td>' +
+    '<td class="actions"><span class="row-acts">' +
+      '<a class="icon-act" href="/' + encodeURIComponent(s.name) + '/" target="_blank" title="開啟站台" aria-label="開啟站台">' + OPEN_SVG + '</a>' +
+      '<button class="icon-act" onclick="renameSite(\'' + escapeAttr(s.name) + '\',\'' + escapeAttr(s.uploader) + '\')" title="改名" aria-label="改名">' + EDIT_SVG + '</button>' +
+      '<button class="icon-act del" onclick="deleteSite(\'' + escapeAttr(s.name) + '\',\'' + escapeAttr(s.uploader) + '\')" title="刪除站台" aria-label="刪除站台">' + DEL_SVG + '</button>' +
+    '</span></td></tr>';
+}
+
+function renderTable() {
   const body = document.getElementById('sitesBody');
+  const totalPages = Math.max(1, Math.ceil(allSites.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = allSites.slice(start, start + PAGE_SIZE);
+  body.innerHTML = pageRows.map(rowHtml).join('');
+  renderPager(totalPages);
+}
+
+function renderPager(totalPages) {
   const pager = document.getElementById('pager');
-  if (!body || !pager) return;
-  const rows = Array.from(body.querySelectorAll('tr'));
-  const totalPages = Math.ceil(rows.length / PAGE_SIZE);
-  let current = 1;
+  pager.innerHTML = '';
+  if (totalPages <= 1) return;
+  const mk = (label, page, opts = {}) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (opts.active) b.className = 'active';
+    if (opts.disabled) b.disabled = true;
+    if (opts.aria) b.setAttribute('aria-label', opts.aria);
+    if (!opts.disabled && !opts.active) b.addEventListener('click', () => { currentPage = page; renderTable(); });
+    pager.appendChild(b);
+  };
+  mk('‹', currentPage - 1, { disabled: currentPage === 1, aria: '上一頁' });
+  for (let p = 1; p <= totalPages; p++) mk(String(p), p, { active: p === currentPage });
+  mk('›', currentPage + 1, { disabled: currentPage === totalPages, aria: '下一頁' });
+}
 
-  function render() {
-    const start = (current - 1) * PAGE_SIZE;
-    const end = start + PAGE_SIZE;
-    rows.forEach((tr, i) => { tr.style.display = (i >= start && i < end) ? '' : 'none'; });
-    pager.innerHTML = '';
-    if (totalPages <= 1) return;
-    const mk = (label, page, opts = {}) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = label;
-      if (opts.active) b.className = 'active';
-      if (opts.disabled) b.disabled = true;
-      if (opts.aria) b.setAttribute('aria-label', opts.aria);
-      if (!opts.disabled && !opts.active) b.addEventListener('click', () => { current = page; render(); });
-      pager.appendChild(b);
-    };
-    mk('‹', current - 1, { disabled: current === 1, aria: '上一頁' });
-    for (let p = 1; p <= totalPages; p++) mk(String(p), p, { active: p === current });
-    mk('›', current + 1, { disabled: current === totalPages, aria: '下一頁' });
+async function loadSites() {
+  try {
+    const res = await fetch('/api/sites', { cache: 'no-store' });
+    const data = await res.json();
+    allSites = Array.isArray(data.sites) ? data.sites : [];
+    const total = data.total != null ? data.total : allSites.length;
+    const totalSize = data.total_size || humanSize((allSites.reduce((a, s) => a + (s.size_bytes || 0), 0)));
+
+    // stats
+    setText('opTotal', total); setText('opSize', totalSize);
+    setText('statTotal', total); setText('statSize', totalSize);
+    setText('statGenerated', fmtTime(new Date().toISOString()));
+    setText('mTotal', total); setText('mSize', totalSize);
+    setText('mGenerated', fmtTime(new Date().toISOString()));
+    setText('tableCount', total); setText('footTotal', total); setText('footSize', totalSize);
+    setText('pageSizeLabel', PAGE_SIZE);
+
+    // latest
+    if (allSites.length) {
+      const latest = allSites[0];
+      setText('mLatest', relTime(latest.uploaded_at));
+      setText('mLatestFoot', (latest.name || '') + ' · ' + (latest.uploader || ''));
+    } else {
+      setText('mLatest', '—'); setText('mLatestFoot', '尚無站台');
+    }
+
+    // table vs empty
+    const hasSites = allSites.length > 0;
+    document.getElementById('tableWrap').hidden = !hasSites;
+    document.getElementById('tableFooter').hidden = !hasSites;
+    document.getElementById('emptyState').hidden = hasSites;
+    if (hasSites) renderTable();
+  } catch (err) {
+    setText('mLatest', '載入失敗');
+    console.error('loadSites failed', err);
   }
-  render();
-})();
+}
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 
+// ---- upload ----
 const dz = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const fileInfo = document.getElementById('fileInfo');
@@ -440,70 +485,39 @@ let pickedFile = null;
 
 ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
 ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
-
-dz.addEventListener('drop', e => {
-  const f = e.dataTransfer.files[0];
-  if (f) setFile(f);
-});
-fileInput.addEventListener('change', () => {
-  if (fileInput.files[0]) setFile(fileInput.files[0]);
-});
+dz.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) setFile(f); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
 
 function setFile(f) {
   pickedFile = f;
   const isHtml = /\.(html|htm)$/i.test(f.name);
-  const isTar  = /\.(tar\.gz|tgz)$/i.test(f.name);
-  const ok = isHtml || isTar;
   const fileIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
   const warnIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-  fileInfo.innerHTML = ok
+  fileInfo.innerHTML = isHtml
     ? '<span class="filechip">' + fileIcon + '<span>' + escapeHtml(f.name) + '</span><span class="sz">' + humanSize(f.size) + '</span></span>'
-    : '<span class="filechip warn">' + warnIcon + '<span>只接受 .html / .tar.gz · ' + escapeHtml(f.name) + '</span></span>';
-  const guess = f.name
-    .replace(/\.(tar\.gz|tgz|html|htm)$/i, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    : '<span class="filechip warn">' + warnIcon + '<span>只接受 .html / .htm · ' + escapeHtml(f.name) + '</span></span>';
+  const guess = f.name.replace(/\.(html|htm)$/i, '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   if (!document.getElementById('siteInput').value && guess) {
     document.getElementById('siteInput').value = guess.slice(0, 40);
   }
 }
 
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function humanSize(n) {
-  if (n < 1024) return n + 'B';
-  const u = ['K','M','G']; let i=-1;
-  do { n/=1024; i++; } while (n >= 1024 && i < u.length-1);
-  return n.toFixed(1) + u[i];
-}
-
 form.addEventListener('submit', async e => {
   e.preventDefault();
-  if (!pickedFile) { showStatus('err', '先選或拖一個 .html 或 .tar.gz'); return; }
-  const isHtml = /\.(html|htm)$/i.test(pickedFile.name);
-  const isTar  = /\.(tar\.gz|tgz)$/i.test(pickedFile.name);
-  if (!isHtml && !isTar) {
-    showStatus('err', '⛔ 只接受 .html / .tar.gz · 你給的: ' + pickedFile.name);
+  if (!pickedFile) { showStatus('err', '先選或拖一個 .html'); return; }
+  if (!/\.(html|htm)$/i.test(pickedFile.name)) {
+    showStatus('err', '⛔ 只接受 .html / .htm · 你給的: ' + pickedFile.name);
     return;
   }
   const fd = new FormData();
-  if (isHtml) {
-    fd.append('file', pickedFile);
-  } else {
-    fd.append('archive', pickedFile);
-  }
+  fd.append('file', pickedFile);
   fd.append('site', document.getElementById('siteInput').value.trim());
   fd.append('project_name', document.getElementById('projectNameInput').value.trim());
   fd.append('identity', document.getElementById('identityInput').value.trim());
   fd.append('force', document.getElementById('forceInput').checked ? '1' : '0');
   showStatus('ok', '上傳中...');
   try {
-    const endpoint = isHtml ? '/api/upload-single' : '/api/upload';
-    const res = await fetch(endpoint, { method:'POST', body:fd });
+    const res = await fetch('/api/upload-single', { method:'POST', body:fd });
     const j = await res.json();
     if (res.ok) {
       showStatus('ok', '✓ 完成 · ' + j.url);
@@ -518,11 +532,9 @@ form.addEventListener('submit', async e => {
   }
 });
 
-function showStatus(cls, msg) {
-  statusBox.className = cls;
-  statusBox.textContent = msg;
-}
+function showStatus(cls, msg) { statusBox.className = cls; statusBox.textContent = msg; }
 
+// ---- management modal ----
 const manageModal = document.getElementById('manageModal');
 const modalTitle = document.getElementById('modalTitle');
 const modalCopy = document.getElementById('modalCopy');
@@ -567,12 +579,8 @@ async function requestJSON(url, options) {
 
 document.getElementById('modalClose').addEventListener('click', closeModal);
 document.getElementById('modalCancel').addEventListener('click', closeModal);
-manageModal.addEventListener('click', event => {
-  if (event.target === manageModal) closeModal();
-});
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && !manageModal.hidden) closeModal();
-});
+manageModal.addEventListener('click', event => { if (event.target === manageModal) closeModal(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !manageModal.hidden) closeModal(); });
 modalForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!modalSubmit) return;
@@ -637,6 +645,8 @@ function editProjectName(button) {
     }
   });
 }
+
+loadSites();
 </script>
 </body>
 </html>

@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wez-html · 靜態站台代管</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --fg:#18181b; --muted:#71717a; --faint:#a1a1aa; --line:#e4e4e7; --line-soft:#f0f0f1;
+    --bg:#fbfbfa; --surface:#fff; --accent:#dc2626; --accent-soft:#fff1f1;
+    --ok-bg:#f0fdf4; --ok-fg:#166534; --ok-line:#bbf7d0;
+    --warn-bg:#fffbeb; --warn-fg:#92400e; --warn-line:#fde68a;
+    --danger-bg:#fef2f2; --danger-fg:#991b1b; --danger-line:#fecaca;
+    --mono:"SF Mono","Menlo","Consolas",monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; color:var(--fg); background:var(--bg); line-height:1.5; font-size:14px; -webkit-font-smoothing:antialiased; }
+  a { color:inherit; }
+
+  /* ---- top bar ---- */
+  .topbar { background:#fff; color:var(--fg); border-bottom:2px solid #18181b; }
+  .topbar-inner { max-width:none; margin:0 auto; padding:0 38px; height:58px; display:flex; align-items:center; gap:22px; }
+  .brand { display:flex; align-items:center; gap:12px; font-family:var(--mono); font-weight:800; font-size:21px; letter-spacing:-0.02em; white-space:nowrap; }
+  .brand .logo { width:34px; height:28px; flex:0 0 auto; color:var(--accent); display:flex; align-items:center; justify-content:center; }
+  .brand .logo svg { width:34px; height:28px; }
+  .brand .accent { color:var(--accent); }
+  .brand .badge { font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif; font-weight:700; font-size:12px; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:3px 10px; letter-spacing:0.02em; }
+  .topbar .opsum { color:var(--muted); font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; }
+  .topbar .opsum b { color:var(--fg); font-weight:600; }
+  .topnav { display:flex; align-items:center; gap:4px; flex:0 0 auto; }
+  .topnav a { display:inline-flex; align-items:center; gap:5px; color:var(--muted); text-decoration:none; font-size:12.5px; padding:6px 10px; border-radius:6px; }
+  .topnav a:hover { background:#f4f4f5; color:var(--fg); }
+  .topnav a svg { width:14px; height:14px; }
+  .topnav .status { display:inline-flex; align-items:center; gap:6px; color:var(--ok-fg); font-size:12px; padding:6px 10px; }
+  .topnav .status .dot { width:7px; height:7px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.18); }
+
+  .wrap { max-width:none; margin:0 auto; padding:22px 38px 40px; }
+
+  /* ---- intro copy row ---- */
+  .intro { font-size:14px; color:var(--muted); margin:0 0 14px; line-height:1.7; }
+  .intro code.inline { font-size:12px; }
+  .statline { display:flex; align-items:center; gap:24px; color:var(--muted); font-size:13px; margin:0 0 20px; }
+  .statline b { color:var(--fg); font-weight:700; }
+
+  code.inline { background:var(--surface); border:1px solid var(--line); padding:1px 6px; border-radius:5px; font-family:var(--mono); font-size:12.5px; }
+
+  /* ---- dashboard grid ---- */
+  .grid { display:grid; grid-template-columns: minmax(0,1.58fr) minmax(500px,1fr); gap:22px; align-items:stretch; }
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 2px rgba(24,24,27,.03); }
+  .panel-head { padding:16px 16px 14px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .panel-head h2 { font-size:17px; font-weight:800; margin:0; display:flex; align-items:center; gap:8px; }
+  .panel-head h2::before { content:""; width:3px; height:15px; border-radius:2px; background:var(--accent); flex:0 0 auto; }
+  .panel-head h2 svg { width:15px; height:15px; color:var(--muted); }
+  .panel-head .hint { font-size:11.5px; color:var(--faint); }
+  .panel-body { padding:18px 16px 20px; }
+
+  /* metric cards — icon top-left with circle bg, label below icon */
+  .metrics { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:16px; height:100%; }
+  .metric { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:18px 18px 16px; display:flex; flex-direction:column; gap:8px; min-height:150px; box-shadow:0 1px 3px rgba(24,24,27,.05); }
+  .metric .m-ico { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:0 0 auto; margin-bottom:2px; }
+  .metric .m-ico svg { width:20px; height:20px; }
+  .metric .m-ico.red { background:var(--accent-soft); color:var(--accent); }
+  .metric .m-ico.green { background:var(--ok-bg); color:var(--ok-fg); }
+  .metric .m-ico.amber { background:var(--warn-bg); color:#f59e0b; }
+  .metric .m-ico.gray { background:#f4f4f5; color:var(--muted); }
+  .metric .m-label { font-size:12.5px; color:var(--muted); font-weight:500; }
+  .metric .m-value { font-size:38px; font-weight:800; line-height:1.05; letter-spacing:-0.02em; }
+  .metric .m-value.sm { font-size:22px; line-height:1.2; font-family:var(--mono); overflow:hidden; text-overflow:ellipsis; }
+  .metric .m-foot { font-size:12px; color:var(--muted); margin-top:auto; }
+
+  /* upload dropzone */
+  .upload-box { display:block; position:relative; border:2px dashed #ff6b6b; border-radius:6px; min-height:200px; padding:24px 18px; background:linear-gradient(180deg,#fff7f7 0%,#fff2f2 100%); transition:border-color .12s, background .12s; }
+  .upload-box.drag { border-color:var(--accent); background:#fee2e2; }
+  .drop-hint { color:var(--muted); font-size:13px; text-align:center; display:flex; flex-direction:column; align-items:center; }
+  .drop-hint .cloud { width:56px; height:56px; color:var(--accent); margin-bottom:12px; }
+  .drop-hint b { color:var(--fg); font-family:var(--mono); }
+  .drop-hint .chips { display:flex; gap:7px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+  .drop-hint .chips span { font-family:var(--mono); font-size:12px; color:var(--accent); background:#fff; border:1px solid var(--danger-line); border-radius:999px; padding:4px 11px; }
+  .drop-hint .pick { display:inline-block; margin-top:14px; font-size:12.5px; color:var(--accent); font-weight:600; cursor:pointer; text-decoration:underline; }
+  .drop-hint input[type=file] { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; clip:rect(0 0 0 0); }
+  #fileInfo { margin-top:12px; min-height:20px; text-align:center; }
+  #fileInfo .filechip { display:inline-flex; align-items:center; gap:10px; min-width:250px; justify-content:flex-start; font-family:var(--mono); font-size:13px; color:var(--fg); background:#fff; border:1px solid var(--accent); border-radius:7px; padding:8px 13px; box-shadow:0 1px 2px rgba(220,38,38,.08); }
+  #fileInfo .filechip svg { width:14px; height:14px; color:var(--accent); flex:0 0 auto; }
+  #fileInfo .filechip.warn { color:var(--warn-fg); border-color:var(--warn-line); background:var(--warn-bg); }
+  #fileInfo .filechip.warn svg { color:var(--warn-fg); }
+  #fileInfo .filechip .sz { color:var(--faint); }
+
+  .upload-form { display:grid; grid-template-columns:1fr 1fr; gap:16px 26px; margin-top:16px; align-items:end; }
+  .upload-form .identity-field { grid-column:1 / -1; }
+  .upload-form .field-force { grid-column:1; display:flex; align-items:center; }
+  .upload-form .submit-cell { grid-column:2; display:flex; justify-content:flex-end; align-items:end; }
+  .upload-form label.fl { display:block; font-size:11.5px; color:var(--muted); margin-bottom:5px; font-weight:500; }
+  .upload-form input[type=text] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:5px; font-size:14px; font-family:inherit; background:var(--surface); }
+  .upload-form input[type=text]:focus { outline:none; border-color:var(--fg); }
+  .upload-form .cb { font-size:12.5px; color:var(--muted); display:inline-flex; align-items:center; gap:9px; cursor:pointer; user-select:none; }
+  .upload-form .cb input[type=checkbox] { position:absolute; opacity:0; width:0; height:0; }
+  .upload-form .cb .switch { width:34px; height:20px; border-radius:999px; background:#d4d4d8; position:relative; flex:0 0 auto; transition:background .15s; }
+  .upload-form .cb .switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:transform .15s; }
+  .upload-form .cb input:checked + .switch { background:var(--accent); }
+  .upload-form .cb input:checked + .switch::after { transform:translateX(14px); }
+  .upload-form .cb input:focus-visible + .switch { outline:2px solid var(--accent); outline-offset:2px; }
+  .upload-form button[type=submit] { padding:12px 24px; background:var(--accent); color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:700; display:inline-flex; align-items:center; gap:8px; box-shadow:0 8px 18px rgba(220,38,38,.16); }
+  .upload-form button[type=submit]:hover { background:#b91c1c; }
+  .upload-form button[type=submit] svg { width:14px; height:14px; }
+
+  #status { margin-top:14px; font-size:12.5px; font-family:var(--mono); padding:8px 12px; border-radius:6px; display:none; }
+  #status.ok { display:block; background:var(--ok-bg); color:var(--ok-fg); border:1px solid var(--ok-line); }
+  #status.err { display:block; background:var(--danger-bg); color:var(--danger-fg); border:1px solid var(--danger-line); }
+
+  /* ---- sites table ---- */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; min-width:820px; }
+  thead th { text-align:left; padding:13px 16px; background:#fafafa; border-bottom:1px solid var(--line); font-weight:700; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
+  tbody td { text-align:left; padding:15px 16px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
+  tbody tr:hover { background:#fafafa; }
+  tbody tr:last-child td { border-bottom:none; }
+  td.site a { color:var(--accent); text-decoration:none; font-weight:800; font-family:var(--mono); font-size:14px; }
+  td.site a:hover { text-decoration:underline; }
+  td.project { max-width:220px; font-weight:700; }
+  .project-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .project-edit { margin-left:7px; border:0; padding:2px; background:transparent; color:var(--faint); cursor:pointer; vertical-align:middle; }
+  .project-edit:hover { color:var(--accent); }
+  .project-edit svg { width:13px; height:13px; }
+  td.mono { font-family:var(--mono); color:var(--muted); white-space:nowrap; font-size:12.5px; }
+  td.srcpath { font-family:var(--mono); color:var(--muted); font-size:11.5px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:help; }
+  td.actions { white-space:nowrap; text-align:right; }
+  td.actions .row-acts { display:inline-flex; align-items:center; gap:6px; justify-content:flex-end; }
+  a.icon-act, button.icon-act { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; text-decoration:none; padding:0; }
+  a.icon-act:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  button.icon-act.del { border-color:var(--danger-line); color:#fff; background:var(--accent); }
+  button.icon-act.del:hover { background:#b91c1c; border-color:#b91c1c; }
+  a.icon-act svg, button.icon-act svg { width:15px; height:15px; }
+
+  .pill { display:inline-flex; align-items:center; padding:3px 10px; border-radius:6px; font-size:12px; font-family:var(--mono); font-weight:600; }
+  .pill.ok { background:var(--ok-bg); color:var(--ok-fg); }
+  .pill.warn { background:var(--warn-bg); color:var(--warn-fg); }
+  .pill.danger { background:var(--danger-bg); color:var(--danger-fg); }
+
+  .empty { padding:48px; min-height:108px; text-align:center; color:var(--muted); }
+  .table-footer { display:flex; align-items:center; justify-content:center; gap:14px; padding:13px 16px; border-top:1px solid var(--line-soft); color:var(--muted); font-size:13px; }
+  .pager { display:inline-flex; align-items:center; gap:6px; }
+  .pager button, .page-size { border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:6px; height:30px; padding:0 10px; font:inherit; }
+  .pager .active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  details.help { margin-top:14px; font-size:12.5px; color:var(--muted); }
+  details.help summary { cursor:pointer; user-select:none; }
+  details.help pre { background:#18181b; color:#e4e4e7; padding:12px; border-radius:6px; font-size:11.5px; overflow-x:auto; margin-top:10px; }
+
+  footer { margin-top:36px; color:var(--faint); font-size:11.5px; padding-top:16px; border-top:1px solid var(--line); }
+  footer code.inline { font-size:11.5px; }
+
+  /* ---- management modal ---- */
+  body.modal-open { overflow:hidden; }
+  .modal-backdrop { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:20px; background:rgba(24,24,27,.42); }
+  .modal-backdrop[hidden] { display:none; }
+  .modal { width:min(100%,440px); background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:0 20px 50px rgba(24,24,27,.24); }
+  .modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:20px 20px 0; }
+  .modal-head h2 { margin:0; font-size:18px; line-height:1.35; }
+  .modal-close { width:30px; height:30px; border:0; border-radius:6px; background:#f4f4f5; color:var(--muted); cursor:pointer; font-size:20px; line-height:1; }
+  .modal-close:hover { background:#e4e4e7; color:var(--fg); }
+  .modal-copy { margin:8px 20px 0; color:var(--muted); font-size:13px; line-height:1.6; }
+  .modal-form { padding:18px 20px 20px; }
+  .modal-fields { display:grid; gap:14px; }
+  .modal-field label { display:block; margin-bottom:6px; color:var(--muted); font-size:12px; font-weight:600; }
+  .modal-field input { width:100%; height:40px; padding:0 11px; border:1px solid var(--line); border-radius:6px; color:var(--fg); font:inherit; }
+  .modal-field input:focus { outline:2px solid #fecaca; border-color:var(--accent); }
+  .modal-error { min-height:20px; margin:12px 0 0; color:var(--accent); font-size:12px; line-height:1.5; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .modal-actions button { height:38px; padding:0 14px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--fg); cursor:pointer; font:inherit; font-size:13px; font-weight:600; }
+  .modal-actions .modal-confirm { border-color:var(--fg); background:var(--fg); color:#fff; }
+  .modal-actions .modal-confirm.danger { border-color:var(--accent); background:var(--accent); }
+  .modal-actions .modal-confirm:disabled { cursor:wait; opacity:.65; }
+
+  /* ---- responsive ---- */
+  @media (max-width: 880px) {
+    .grid { grid-template-columns:1fr; }
+    .topbar .opsum { display:none; }
+    .topbar-inner, .wrap { padding-left:18px; padding-right:18px; }
+  }
+  @media (max-width: 540px) {
+    .metrics { grid-template-columns:1fr; }
+    .upload-form { grid-template-columns:1fr; }
+    .upload-form .field-force, .upload-form .submit-cell { grid-column:1; justify-content:flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">
+      <span class="logo"><svg viewBox="0 0 36 28" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 4L14 14L4 24"/><path d="M20 24H32"/></svg></span>
+      wez<span class="accent">-</span>html
+      <span class="badge">內部服務</span>
+    </span>
+    <span class="opsum">靜態站台代管 · 已上線 <b id="opTotal">–</b> 站 · 用量 <b id="opSize">–</b> · <span id="opVersion"></span></span>
+    <nav class="topnav">
+      <a href="#upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>使用說明</a>
+      <a href="#cli"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 9 12 4 17"/><line x1="12" y1="17" x2="20" y2="17"/></svg>CLI 指令</a>
+      <a href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>重新整理</a>
+      <span class="status"><span class="dot"></span>服務正常</span>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <p class="intro">
+    把 <code class="inline">.html</code> 單檔透過 <code class="inline">/wez_upload_html</code> 或下方拖檔上傳,即可取得一個常駐網址 — 永久代管,不自動下架。
+  </p>
+  <div class="statline">
+    <span>共 <b id="statTotal">–</b> 站</span>
+    <span>總用量 <b id="statSize">–</b></span>
+    <span><span id="statVersion"></span> · <span id="statGenerated"></span></span>
+  </div>
+
+  <div class="grid">
+    <!-- upload panel -->
+    <div class="panel" id="upload">
+      <div class="panel-head">
+        <h2>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          拖檔上傳
+        </h2>
+        <span class="hint">.html 單檔</span>
+      </div>
+      <div class="panel-body">
+        <label class="upload-box" id="dropZone" for="fileInput">
+          <div class="drop-hint">
+            <svg class="cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l-4-4-4 4"/><path d="M12 12v9"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+            <div>拖 <b>.html</b> 單檔到這裡</div>
+            <div class="chips"><span>.html</span><span>.htm</span></div>
+            <span class="pick">或點此選擇檔案</span>
+            <input type="file" id="fileInput" accept=".html,.htm,text/html">
+            <div id="fileInfo"></div>
+          </div>
+        </label>
+        <form class="upload-form" id="uploadForm">
+          <div>
+            <label class="fl" for="projectNameInput">專案名稱</label>
+            <input type="text" id="projectNameInput" placeholder="例如：六月客戶提案" maxlength="80">
+          </div>
+          <div>
+            <label class="fl" for="siteInput">Site name (a–z, 0–9, -)</label>
+            <input type="text" id="siteInput" placeholder="my-demo" pattern="[a-z0-9-]{1,40}" required>
+          </div>
+          <div class="identity-field">
+            <label class="fl" for="identityInput">你是誰 (英文/工號)</label>
+            <input type="text" id="identityInput" placeholder="yc" pattern="[a-zA-Z0-9_-]{1,20}" required>
+          </div>
+          <div class="field-force">
+            <label class="cb"><input type="checkbox" id="forceInput"><span class="switch"></span>強制覆蓋(撞名時)</label>
+          </div>
+          <div class="submit-cell">
+            <button type="submit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              上傳
+            </button>
+          </div>
+        </form>
+        <div id="status"></div>
+        <details class="help" id="cli">
+          <summary>偏好 CLI?用 <code class="inline">/wez_upload_html</code></summary>
+<pre>$ /wez_upload_html ./個人賽.html yc           # 單檔自動包成資料夾
+$ /wez_upload_html ./個人賽.html yc --force
+$ /wez_upload_html --delete my-demo yc</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- metric cards -->
+    <div class="metrics">
+      <div class="metric">
+        <span class="m-ico red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+        <div class="m-label">總站台數</div>
+        <div class="m-value" id="mTotal">–</div>
+        <div class="m-foot">活躍站台</div>
+      </div>
+      <div class="metric">
+        <span class="m-ico amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span>
+        <div class="m-label">總用量</div>
+        <div class="m-value" id="mSize">–</div>
+        <div class="m-foot">所有站台加總</div>
+      </div>
+      <div class="metric">
+        <span class="m-ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <div class="m-label">最新上傳</div>
+        <div class="m-value sm" id="mLatest">–</div>
+        <div class="m-foot" id="mLatestFoot">尚無站台</div>
+      </div>
+      <div class="metric">
+        <span class="m-ico gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+        <div class="m-label">服務版本</div>
+        <div class="m-value sm" id="mVersion">–</div>
+        <div class="m-foot" id="mGenerated"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- sites table -->
+  <div class="panel" style="margin-top:18px">
+    <div class="panel-head">
+      <h2>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        目前的站台
+      </h2>
+      <span class="hint"><span id="tableCount">–</span> 站</span>
+    </div>
+    <div class="table-wrap" id="tableWrap" hidden>
+      <table>
+        <thead>
+          <tr><th>專案名稱</th><th>Site</th><th>Uploader</th><th>上傳時間</th><th>已上線</th><th>大小</th><th>來源路徑</th><th style="text-align:right">動作</th></tr>
+        </thead>
+        <tbody id="sitesBody"></tbody>
+      </table>
+    </div>
+    <div class="table-footer" id="tableFooter" hidden>
+      <span>共 <b id="footTotal">–</b> 站 / <span id="footSize">–</span></span>
+      <span class="pager" id="pager"></span>
+      <span class="page-size">每頁 <b id="pageSizeLabel">20</b> 筆</span>
+    </div>
+    <div class="empty" id="emptyState" hidden>還沒有站台。用上方拖檔或 <code class="inline">/wez_upload_html</code> 上傳第一個。</div>
+  </div>
+
+  <footer>
+    wez-html <span id="footVersion"></span> · 靜態代管平台 · 來源 <code class="inline">github.com/yanchen184/wez-html</code>
+  </footer>
+</div>
+
+<div class="modal-backdrop" id="manageModal" hidden>
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h2 id="modalTitle"></h2>
+      <button class="modal-close" type="button" id="modalClose" aria-label="關閉">×</button>
+    </div>
+    <p class="modal-copy" id="modalCopy"></p>
+    <form class="modal-form" id="modalForm">
+      <div class="modal-fields" id="modalFields"></div>
+      <p class="modal-error" id="modalError" role="alert"></p>
+      <div class="modal-actions">
+        <button type="button" id="modalCancel">取消</button>
+        <button class="modal-confirm" type="submit" id="modalConfirm"></button>
+      </div>
+    </form>
+  </section>
+</div>
+<script>
+// wez-html 單一源皮:Go 端 embed、Cloudflare Pages 端當 public/index.html。
+// 所有站台資料一律前端 fetch /api/sites 後渲染,兩端共用同一份皮。
+const VERSION = "v1.2.0";
+const PAGE_SIZE = 20;
+let allSites = [];
+let currentPage = 1;
+
+document.getElementById('opVersion').textContent = VERSION;
+document.getElementById('statVersion').textContent = VERSION;
+document.getElementById('mVersion').textContent = VERSION;
+document.getElementById('footVersion').textContent = VERSION;
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+function humanSize(n) {
+  if (n < 1024) return n + 'B';
+  const u = ['K','M','G']; let i=-1;
+  do { n/=1024; i++; } while (n >= 1024 && i < u.length-1);
+  return n.toFixed(1) + u[i];
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function relTime(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff/60000), h = Math.floor(diff/3600000), dd = Math.floor(diff/86400000);
+  if (m < 1) return '剛才';
+  if (m < 60) return m + ' 分鐘前';
+  if (h < 24) return h + ' 小時前';
+  return dd + ' 天前';
+}
+
+const EDIT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const OPEN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+const DEL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+
+function rowHtml(s) {
+  const pn = s.project_name || '';
+  return '<tr data-site="' + escapeAttr(s.name) + '">' +
+    '<td class="project" title="' + escapeAttr(pn) + '"><span class="project-name">' + (pn ? escapeHtml(pn) : '—') + '</span>' +
+      '<button class="project-edit" data-site="' + escapeAttr(s.name) + '" data-uploader="' + escapeAttr(s.uploader) + '" data-project="' + escapeAttr(pn) + '" onclick="editProjectName(this)" title="修改專案名稱" aria-label="修改專案名稱">' + EDIT_SVG + '</button></td>' +
+    '<td class="site"><a href="/' + encodeURIComponent(s.name) + '/" target="_blank">' + escapeHtml(s.name) + '</a></td>' +
+    '<td class="mono">' + escapeHtml(s.uploader) + '</td>' +
+    '<td class="mono">' + fmtTime(s.uploaded_at) + '</td>' +
+    '<td><span class="pill ok">' + (s.days_online || 0) + 'd</span></td>' +
+    '<td class="mono">' + escapeHtml(s.size_human || humanSize(s.size_bytes || 0)) + '</td>' +
+    '<td class="srcpath" title="' + escapeAttr(s.src_path || '') + '">' + (s.src_path ? escapeHtml(s.src_path) : '—') + '</td>' +
+    '<td class="actions"><span class="row-acts">' +
+      '<a class="icon-act" href="/' + encodeURIComponent(s.name) + '/" target="_blank" title="開啟站台" aria-label="開啟站台">' + OPEN_SVG + '</a>' +
+      '<button class="icon-act" onclick="renameSite(\'' + escapeAttr(s.name) + '\',\'' + escapeAttr(s.uploader) + '\')" title="改名" aria-label="改名">' + EDIT_SVG + '</button>' +
+      '<button class="icon-act del" onclick="deleteSite(\'' + escapeAttr(s.name) + '\',\'' + escapeAttr(s.uploader) + '\')" title="刪除站台" aria-label="刪除站台">' + DEL_SVG + '</button>' +
+    '</span></td></tr>';
+}
+
+function renderTable() {
+  const body = document.getElementById('sitesBody');
+  const totalPages = Math.max(1, Math.ceil(allSites.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = allSites.slice(start, start + PAGE_SIZE);
+  body.innerHTML = pageRows.map(rowHtml).join('');
+  renderPager(totalPages);
+}
+
+function renderPager(totalPages) {
+  const pager = document.getElementById('pager');
+  pager.innerHTML = '';
+  if (totalPages <= 1) return;
+  const mk = (label, page, opts = {}) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (opts.active) b.className = 'active';
+    if (opts.disabled) b.disabled = true;
+    if (opts.aria) b.setAttribute('aria-label', opts.aria);
+    if (!opts.disabled && !opts.active) b.addEventListener('click', () => { currentPage = page; renderTable(); });
+    pager.appendChild(b);
+  };
+  mk('‹', currentPage - 1, { disabled: currentPage === 1, aria: '上一頁' });
+  for (let p = 1; p <= totalPages; p++) mk(String(p), p, { active: p === currentPage });
+  mk('›', currentPage + 1, { disabled: currentPage === totalPages, aria: '下一頁' });
+}
+
+async function loadSites() {
+  try {
+    const res = await fetch('/api/sites', { cache: 'no-store' });
+    const data = await res.json();
+    allSites = Array.isArray(data.sites) ? data.sites : [];
+    const total = data.total != null ? data.total : allSites.length;
+    const totalSize = data.total_size || humanSize((allSites.reduce((a, s) => a + (s.size_bytes || 0), 0)));
+
+    // stats
+    setText('opTotal', total); setText('opSize', totalSize);
+    setText('statTotal', total); setText('statSize', totalSize);
+    setText('statGenerated', fmtTime(new Date().toISOString()));
+    setText('mTotal', total); setText('mSize', totalSize);
+    setText('mGenerated', fmtTime(new Date().toISOString()));
+    setText('tableCount', total); setText('footTotal', total); setText('footSize', totalSize);
+    setText('pageSizeLabel', PAGE_SIZE);
+
+    // latest
+    if (allSites.length) {
+      const latest = allSites[0];
+      setText('mLatest', relTime(latest.uploaded_at));
+      setText('mLatestFoot', (latest.name || '') + ' · ' + (latest.uploader || ''));
+    } else {
+      setText('mLatest', '—'); setText('mLatestFoot', '尚無站台');
+    }
+
+    // table vs empty
+    const hasSites = allSites.length > 0;
+    document.getElementById('tableWrap').hidden = !hasSites;
+    document.getElementById('tableFooter').hidden = !hasSites;
+    document.getElementById('emptyState').hidden = hasSites;
+    if (hasSites) renderTable();
+  } catch (err) {
+    setText('mLatest', '載入失敗');
+    console.error('loadSites failed', err);
+  }
+}
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+// ---- upload ----
+const dz = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const form = document.getElementById('uploadForm');
+const statusBox = document.getElementById('status');
+let pickedFile = null;
+
+['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
+dz.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) setFile(f); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+function setFile(f) {
+  pickedFile = f;
+  const isHtml = /\.(html|htm)$/i.test(f.name);
+  const fileIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
+  const warnIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  fileInfo.innerHTML = isHtml
+    ? '<span class="filechip">' + fileIcon + '<span>' + escapeHtml(f.name) + '</span><span class="sz">' + humanSize(f.size) + '</span></span>'
+    : '<span class="filechip warn">' + warnIcon + '<span>只接受 .html / .htm · ' + escapeHtml(f.name) + '</span></span>';
+  const guess = f.name.replace(/\.(html|htm)$/i, '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  if (!document.getElementById('siteInput').value && guess) {
+    document.getElementById('siteInput').value = guess.slice(0, 40);
+  }
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!pickedFile) { showStatus('err', '先選或拖一個 .html'); return; }
+  if (!/\.(html|htm)$/i.test(pickedFile.name)) {
+    showStatus('err', '⛔ 只接受 .html / .htm · 你給的: ' + pickedFile.name);
+    return;
+  }
+  const fd = new FormData();
+  fd.append('file', pickedFile);
+  fd.append('site', document.getElementById('siteInput').value.trim());
+  fd.append('project_name', document.getElementById('projectNameInput').value.trim());
+  fd.append('identity', document.getElementById('identityInput').value.trim());
+  fd.append('force', document.getElementById('forceInput').checked ? '1' : '0');
+  showStatus('ok', '上傳中...');
+  try {
+    const res = await fetch('/api/upload-single', { method:'POST', body:fd });
+    const j = await res.json();
+    if (res.ok) {
+      showStatus('ok', '✓ 完成 · ' + j.url);
+      setTimeout(() => location.reload(), 1200);
+    } else if (res.status === 409) {
+      showStatus('err', '⛔ 撞名(現有 uploader=' + j.existing_uploader + '),勾「強制覆蓋」再試');
+    } else {
+      showStatus('err', '⛔ ' + (j.error || res.statusText));
+    }
+  } catch (err) {
+    showStatus('err', '⛔ ' + err.message);
+  }
+});
+
+function showStatus(cls, msg) { statusBox.className = cls; statusBox.textContent = msg; }
+
+// ---- management modal ----
+const manageModal = document.getElementById('manageModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalCopy = document.getElementById('modalCopy');
+const modalForm = document.getElementById('modalForm');
+const modalFields = document.getElementById('modalFields');
+const modalError = document.getElementById('modalError');
+const modalConfirm = document.getElementById('modalConfirm');
+let modalSubmit = null;
+
+function openModal(config) {
+  modalTitle.textContent = config.title;
+  modalCopy.textContent = config.copy;
+  modalFields.innerHTML = config.fields.map(field =>
+    '<div class="modal-field"><label for="modal-' + field.name + '">' + field.label + '</label>' +
+    '<input id="modal-' + field.name + '" name="' + field.name + '" type="text" value="' + escapeHtml(field.value || '') + '"' +
+    (field.placeholder ? ' placeholder="' + escapeHtml(field.placeholder) + '"' : '') +
+    (field.required ? ' required' : '') +
+    (field.pattern ? ' pattern="' + field.pattern + '"' : '') + '></div>'
+  ).join('');
+  modalConfirm.textContent = config.confirmLabel;
+  modalConfirm.classList.toggle('danger', Boolean(config.danger));
+  modalError.textContent = '';
+  modalSubmit = config.submit;
+  manageModal.hidden = false;
+  document.body.classList.add('modal-open');
+  const firstInput = modalFields.querySelector('input');
+  if (firstInput) setTimeout(() => firstInput.focus(), 0);
+}
+
+function closeModal() {
+  manageModal.hidden = true;
+  document.body.classList.remove('modal-open');
+  modalSubmit = null;
+}
+
+async function requestJSON(url, options) {
+  const res = await fetch(url, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.hint || res.statusText || '操作失敗');
+  return data;
+}
+
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+manageModal.addEventListener('click', event => { if (event.target === manageModal) closeModal(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !manageModal.hidden) closeModal(); });
+modalForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!modalSubmit) return;
+  modalError.textContent = '';
+  modalConfirm.disabled = true;
+  try {
+    await modalSubmit(Object.fromEntries(new FormData(modalForm)));
+    closeModal();
+    location.reload();
+  } catch (err) {
+    modalError.textContent = err.message || '操作失敗，請再試一次';
+  } finally {
+    modalConfirm.disabled = false;
+  }
+});
+
+function deleteSite(name, owner) {
+  openModal({
+    title: '刪除站台',
+    copy: '此操作會永久刪除「' + name + '」的網站檔案與 KV 資料。',
+    confirmLabel: '確認刪除',
+    danger: true,
+    fields: [{ name: 'identity', label: 'Uploader identity (' + owner + ')', placeholder: owner, required: true }],
+    submit: values => requestJSON('/api/site/' + name, {
+      method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ identity: values.identity.trim() })
+    })
+  });
+}
+
+function renameSite(name, owner) {
+  openModal({
+    title: '修改 Site 名稱',
+    copy: '這會變更站台 URL；網站檔案與 KV 資料會保留。',
+    confirmLabel: '儲存變更',
+    fields: [
+      { name: 'new_site', label: '新 Site 名稱', value: name, required: true, pattern: '[a-z0-9-]{1,40}' },
+      { name: 'identity', label: 'Uploader identity (' + owner + ')', placeholder: owner, required: true }
+    ],
+    submit: values => requestJSON('/api/site/' + name + '/rename', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ identity: values.identity.trim(), new_site: values.new_site.trim() })
+    })
+  });
+}
+
+function editProjectName(button) {
+  const name = button.dataset.site;
+  const owner = button.dataset.uploader;
+  openModal({
+    title: '修改專案名稱',
+    copy: '專案名稱只影響列表顯示，不會變更 Site URL。留空可清除。',
+    confirmLabel: '儲存變更',
+    fields: [
+      { name: 'project_name', label: '專案名稱', value: button.dataset.project || '', placeholder: '例如：六月客戶提案' },
+      { name: 'identity', label: 'Uploader identity (' + owner + ')', placeholder: owner, required: true }
+    ],
+    submit: values => {
+      const projectName = values.project_name.trim();
+      if (projectName.length > 80 || /[\r\n]/.test(projectName)) throw new Error('專案名稱限 80 個字元且必須為單行文字');
+      return requestJSON('/api/site/' + name + '/project-name', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ identity: values.identity.trim(), project_name: projectName })
+      });
+    }
+  });
+}
+
+loadSites();
+</script>
+</body>
+</html>

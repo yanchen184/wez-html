@@ -1,0 +1,19 @@
+name = "html-yanchen-app"
+pages_build_output_dir = "public"
+compatibility_date = "2024-09-23"
+
+# Workers KV：站台 metadata / 檔案內容 / 站台級 data 全存這裡。
+# binding 名稱 SITES 對應 functions 裡的 env.SITES。
+#
+# 部署前用以下指令建 namespace，把回傳的 id 填進來：
+#   npx wrangler kv namespace create SITES
+#   npx wrangler kv namespace create SITES --preview
+[[kv_namespaces]]
+binding = "SITES"
+id = "40b421754ded47ff9dcdacee15580137"
+preview_id = "5e401edc210049bb9a0725013a14ee39"
+
+# ADMIN_TOKEN 不寫在這（避免進 git）。用：
+#   npx wrangler pages secret put ADMIN_TOKEN
+# 或在 Cloudflare Pages 後台 → Settings → Environment variables 設。
+# 本機 dev 時放 .dev.vars（已 gitignore）。

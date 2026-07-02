@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -26,20 +25,16 @@ func main() {
 		log.Fatalf("mkdir root: %v", err)
 	}
 
-	tmplBytes, err := web.FS.ReadFile("index.html.tmpl")
+	indexHTML, err := web.FS.ReadFile("index.html")
 	if err != nil {
-		log.Fatalf("embed index tmpl: %v", err)
-	}
-	tmpl, err := template.New("index").Parse(string(tmplBytes))
-	if err != nil {
-		log.Fatalf("parse index tmpl: %v", err)
+		log.Fatalf("embed index html: %v", err)
 	}
 	faviconBytes, err := web.FS.ReadFile("favicon.svg")
 	if err != nil {
 		log.Fatalf("embed favicon: %v", err)
 	}
 
-	srv := handler.New(*root, *publicURL, tmpl, string(faviconBytes))
+	srv := handler.New(*root, *publicURL, indexHTML, string(faviconBytes))
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 

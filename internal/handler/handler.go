@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -37,12 +36,12 @@ var (
 type Server struct {
 	Root       string
 	PublicURL  string
-	IndexTmpl  *template.Template
+	IndexHTML  []byte
 	FaviconSVG string
 }
 
-func New(root, publicURL string, indexTmpl *template.Template, faviconSVG string) *Server {
-	return &Server{Root: root, PublicURL: publicURL, IndexTmpl: indexTmpl, FaviconSVG: faviconSVG}
+func New(root, publicURL string, indexHTML []byte, faviconSVG string) *Server {
+	return &Server{Root: root, PublicURL: publicURL, IndexHTML: indexHTML, FaviconSVG: faviconSVG}
 }
 
 func (s *Server) Routes(mux *http.ServeMux) {
@@ -750,21 +749,10 @@ func (s *Server) root(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) indexPage(w http.ResponseWriter, r *http.Request) {
-	sites := s.collectSites()
-	var total int64
-	for _, x := range sites {
-		total += x.SizeBytes
-	}
-	data := map[string]any{
-		"Sites":       sites,
-		"Total":       len(sites),
-		"TotalSize":   humanize(total),
-		"GeneratedAt": time.Now().Format("2006-01-02 15:04:05"),
-		"Version":     "v1.0.0",
-	}
+	// 單一源皮:首頁是靜態 HTML,站台清單/統計一律由前端 fetch /api/sites 渲染。
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.IndexTmpl.Execute(w, data); err != nil {
-		log.Printf("index render: %v", err)
+	if _, err := w.Write(s.IndexHTML); err != nil {
+		log.Printf("index write: %v", err)
 	}
 }
 

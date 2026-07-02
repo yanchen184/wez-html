@@ -1,0 +1,45 @@
+name: deploy
+
+# push 到 main → 自動推 Cloudflare Pages(html.yanchen.app)。
+#
+# 為什麼只有 CF、沒有 wez:
+#   wez 是內網機(10.1.1.7),GitHub 雲端 runner 連不到。
+#   wez 端由內網開發機一鍵推:  make deploy-all WEZ_HOST=wez WEZ_USER=ycchen
+#   (deploy-all = make deploy 推 wez + make deploy-cf 推 CF,兩邊同一份皮 → 功能一致)
+#
+# 需要的 repo secrets(Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   — Cloudflare API token,權限含 Pages:Edit + Workers KV:Edit
+#   CLOUDFLARE_ACCOUNT_ID  — Cloudflare 帳號 ID
+# ADMIN_TOKEN 不放這;走 Pages secret(npx wrangler pages secret put ADMIN_TOKEN),已在 CF 端設好。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cloudflare/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy-cloudflare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Deploy Cloudflare Pages (public/ + functions/)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare
+          # production branch 是 cloudflare-pages(不是 main),用它才進 production。
+          command: pages deploy --branch cloudflare-pages
+
+      - name: Round-trip verify
+        run: |
+          sleep 5
+          curl -sf https://html.yanchen.app/api/sites | head -c 300 || true
