@@ -1,0 +1,44 @@
+name: go-ci
+
+# Go 半邊的閘門:build + vet + test。
+#
+# 為什麼要有:deploy.yml 只在 cloudflare/** 變動時推 CF,Go 那半邊(cmd/ + internal/)
+# 改壞了(build 掛、go test 紅)沒人擋 —— 只有本機手動跑才知道。這支就是那道閘門,
+# 擋「改 handler.go 弄壞卻直接進 main」。
+#
+# 只在 Go 相關檔案變動時跑(改 README / cloudflare/ 皮不觸發,省 runner)。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/go-ci.yml"
+  pull_request:
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/go-ci.yml"
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: build
+        run: go build ./...
+
+      - name: vet
+        run: go vet ./...
+
+      - name: test
+        run: go test -race ./...
