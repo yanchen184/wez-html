@@ -1,0 +1,12 @@
+[Unit]
+Description=wez-html data backup (tar snapshot of --root)
+Wants=wez-html-backup.timer
+
+[Service]
+Type=oneshot
+# root 跑,確保讀得到 /var/lib/wez-html 全部檔案、寫得進 /var/backups。
+ExecStart=/usr/local/bin/wez-html-backup.sh
+# 可覆寫預設:
+#   Environment=WEZ_HTML_ROOT=/var/lib/wez-html
+#   Environment=WEZ_HTML_BACKUP_DIR=/var/backups/wez-html
+#   Environment=WEZ_HTML_BACKUP_KEEP=14

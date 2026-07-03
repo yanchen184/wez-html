@@ -1,0 +1,11 @@
+[Unit]
+Description=Run wez-html data backup daily
+
+[Timer]
+# 每天 03:30 跑一次;開機時若錯過(Persistent)會補跑。
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

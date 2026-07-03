@@ -10,7 +10,7 @@
 
 **這個 repo 是那個看板的後端平台。** 所以:
 - 平台本身(`cloudflare/` 的 functions / 皮 / KV schema)有實質更新 → 用 `/cf-deploy html`(或 `cd cloudflare && npx wrangler pages deploy ...`)重新部署平台,並 round-trip 驗 `https://html.yanchen.app/api/sites` 真的回 200(不是看 build 綠燈)。
-- 部署細節、KV id、ADMIN_TOKEN 位置、踩過的坑:見專案 memory `~/.claude/projects/D--projects-frontend-wez-html/memory/project_html_yanchen_app_deploy.md`;token 在 `~/.claude/memory/credentials.md`。
+- 部署細節、KV id、ADMIN_TOKEN 位置、踩過的坑:見專案 memory `~/.claude/projects/-Users-yanchen-workspace-wez-html/memory/project_html_yanchen_app_deploy.md`;token 在 `~/.claude/memory/credentials.md`。
 
 ## 部署用哪支 command
 - **改平台本身**(functions/皮/KV)→ `/cf-deploy html` 或 `wrangler pages deploy`(見上)。

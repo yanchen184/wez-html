@@ -1,4 +1,4 @@
-.PHONY: build build-linux build-windows build-cli-all build-cli build-server clean run-local deploy deploy-cf deploy-all install-cli
+.PHONY: build build-linux build-windows build-cli-all build-cli build-server clean run-local deploy deploy-cf deploy-all deploy-backup install-cli
 
 VERSION := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BIN_DIR := bin
@@ -94,6 +94,26 @@ deploy-cf:
 #   make deploy-all WEZ_HOST=wez WEZ_USER=ycchen
 deploy-all: deploy deploy-cf
 	@echo "✓ 雙推完成:wez(http://$(WEZ_PUBLIC_HOST):8090) + https://html.yanchen.app"
+
+# 裝 wez 資料備份(每日 tar 快照 /var/lib/wez-html → /var/backups/wez-html,留最近 14 份)
+#   make deploy-backup WEZ_HOST=wez
+# 裝完立刻手動跑一次驗:ssh <host> 'sudo systemctl start wez-html-backup && ls -lh /var/backups/wez-html'
+deploy-backup:
+	@echo "→ 裝資料備份 timer 到 $(WEZ_HOST)"
+	scp scripts/wez-html-backup.sh $(WEZ_HOST):/tmp/wez-html-backup.sh
+	scp scripts/wez-html-backup.service $(WEZ_HOST):/tmp/wez-html-backup.service
+	scp scripts/wez-html-backup.timer $(WEZ_HOST):/tmp/wez-html-backup.timer
+	ssh $(WEZ_HOST) 'sudo install -m 0755 /tmp/wez-html-backup.sh /usr/local/bin/wez-html-backup.sh && \
+	         sudo mv /tmp/wez-html-backup.service /etc/systemd/system/wez-html-backup.service && \
+	         sudo mv /tmp/wez-html-backup.timer /etc/systemd/system/wez-html-backup.timer && \
+	         sudo systemctl daemon-reload && \
+	         sudo systemctl enable --now wez-html-backup.timer && \
+	         echo "→ 跑一次備份驗證" && \
+	         sudo systemctl start wez-html-backup.service && \
+	         sleep 2 && \
+	         sudo ls -lh /var/backups/wez-html/ && \
+	         echo "✓ 備份已裝,timer 狀態:" && \
+	         sudo systemctl status wez-html-backup.timer --no-pager | head -4'
 
 clean:
 	rm -rf $(BIN_DIR) .wez-html-data
