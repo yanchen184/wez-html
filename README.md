@@ -9,7 +9,7 @@ $ ./bin/wez_upload_html ./frontend yc
 
 最常見的入口是 [Claude Code plugin `/wez:upload-html`](https://github.com/yanchen184/wezoomtek-claude-code-plugin)——一句中文需求，plugin 寫完整頁 HTML 再推上去（見下方 [Claude Code plugin](#claude-code-plugin) 段）。
 
-![Web UI](docs/images/implemented-dashboard-v3.png)
+![Web UI](docs/images/dashboard-v1.2.0.png)
 
 ## 為什麼有這個
 
