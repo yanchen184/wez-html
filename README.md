@@ -11,6 +11,8 @@ $ ./bin/wez_upload_html ./frontend yc
 
 ![Web UI](docs/images/dashboard-v1.2.0.png)
 
+> 📖 **不是工程師、只想把一個網頁丟上去拿連結？** 看 [**操作手冊**](docs/操作手冊.md) —— 一步步照做、含疑難排解表，不用懂技術。下面是給開發者 / 維運看的完整說明。
+
 ## 為什麼有這個
 
 過去推一個 demo 要做五件事：
@@ -199,6 +201,7 @@ plugin 內建生成 SOP（KV API 範例、字型 / 顏色變數、`escape()` hel
 
 ## Changelog
 
+- **v1.2.0** — **AI 直接產網站**：內建 `/new` 頁,打一段提示詞(可選附文件)→ 後端跑 `claude -p` 生成一頁 HTML → 自動落站回傳網址(內網限定,`--enable-generate` 開啟);首頁 topnav 加「AI 生成」入口
 - **v1.0.1** — 站台改為永久常駐不自動下架；首頁清單新增本機來源路徑欄；Dashboard 視覺改版
 - **v1.1.1**（2026-05-26）— `--force` 重新上傳時保留 KV `.data/` 目錄，KV 不再隨 redeploy 被砍
 - **v1.1.0**（2026-05-25）— per-site KV CRUD 上線，scoreboard demo，deploy hardening
@@ -207,7 +210,6 @@ plugin 內建生成 SOP（KV API 範例、字型 / 顏色變數、`escape()` hel
 ## v2 規劃
 
 - HTTPS / Basic Auth（目前對外端建議 nginx / Caddy 反代）
-- tar.gz multi-file 上傳（目前 Mode B 限單檔 HTML）
 - Web UI batch upload（一次只能推一檔）
 
 ## License
