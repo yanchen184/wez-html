@@ -38,6 +38,9 @@ type Server struct {
 	PublicURL  string
 	IndexHTML  []byte
 	FaviconSVG string
+
+	GenCfg GenConfig // claude -p 生成端點設定;Enabled=false 時不掛 /api/generate、/new
+	gen    *genState
 }
 
 func New(root, publicURL string, indexHTML []byte, faviconSVG string) *Server {
@@ -50,6 +53,9 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/sites", s.listSites)
 	mux.HandleFunc("/api/site/", s.siteAPI)
 	mux.HandleFunc("/favicon.svg", s.favicon)
+	if s.GenCfg.Enabled {
+		s.registerGenerate(mux, s.GenCfg)
+	}
 	mux.HandleFunc("/", s.root)
 }
 
@@ -274,75 +280,31 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	siteDir := filepath.Join(s.Root, site)
-	var existingMeta *meta.Meta
-	if _, err := os.Stat(siteDir); err == nil {
-		if !force {
-			existing, _ := meta.Load(s.Root, site)
-			resp := map[string]any{
-				"status": "conflict",
-				"site":   site,
-				"hint":   "use force=1 to overwrite, or pick another site name",
-			}
-			if existing != nil {
-				resp["existing_uploader"] = existing.Uploader
-				resp["existing_expires_at"] = existing.ExpiresAt
-			}
-			writeJSON(w, http.StatusConflict, resp)
-			return
+	if _, err := os.Stat(siteDir); err == nil && !force {
+		existing, _ := meta.Load(s.Root, site)
+		resp := map[string]any{
+			"status": "conflict",
+			"site":   site,
+			"hint":   "use force=1 to overwrite, or pick another site name",
 		}
-		existingMeta, _ = meta.Load(s.Root, site)
-	}
-
-	// force 覆蓋時,若新上傳未帶 project_name,沿用舊站台的設定
-	if projectName == "" && existingMeta != nil {
-		projectName = existingMeta.ProjectName
-	}
-
-	staging := siteDir + ".staging"
-	_ = os.RemoveAll(staging)
-	if err := os.MkdirAll(staging, 0o755); err != nil {
-		writeErr(w, 500, fmt.Sprintf("mkdir: %v", err))
+		if existing != nil {
+			resp["existing_uploader"] = existing.Uploader
+			resp["existing_expires_at"] = existing.ExpiresAt
+		}
+		writeJSON(w, http.StatusConflict, resp)
 		return
 	}
-	dst, err := os.Create(filepath.Join(staging, "index.html"))
+
+	htmlBytes, err := io.ReadAll(file)
 	if err != nil {
-		_ = os.RemoveAll(staging)
-		writeErr(w, 500, fmt.Sprintf("create: %v", err))
+		writeErr(w, 500, fmt.Sprintf("read upload: %v", err))
 		return
 	}
-	n, err := io.Copy(dst, file)
-	dst.Close()
+
+	n, err := s.writeSiteHTML(site, identity, projectName, fh.Filename,
+		strings.TrimSpace(r.FormValue("src_path")), htmlBytes, ttl)
 	if err != nil {
-		_ = os.RemoveAll(staging)
-		writeErr(w, 500, fmt.Sprintf("write: %v", err))
-		return
-	}
-
-	now := time.Now()
-	m := &meta.Meta{
-		ProjectName: projectName,
-		Site:        site,
-		Uploader:    identity,
-		UploadedAt:  now,
-		TTLDays:     ttl,
-		ExpiresAt:   meta.ComputeExpiresAt(ttl),
-		Src:         fh.Filename,
-		SrcPath:     strings.TrimSpace(r.FormValue("src_path")), // 瀏覽器拖拉一般為空(拿不到絕對路徑)
-		SizeBytes:   n,
-		Files:       1,
-	}
-	mb, _ := json.MarshalIndent(m, "", "  ")
-	if err := os.WriteFile(filepath.Join(staging, meta.FileName), mb, 0o644); err != nil {
-		_ = os.RemoveAll(staging)
-		writeErr(w, 500, fmt.Sprintf("write meta: %v", err))
-		return
-	}
-
-	preserveKVOnForce(siteDir, staging)
-	_ = os.RemoveAll(siteDir)
-	if err := os.Rename(staging, siteDir); err != nil {
-		_ = os.RemoveAll(staging)
-		writeErr(w, 500, fmt.Sprintf("rename: %v", err))
+		writeErr(w, 500, err.Error())
 		return
 	}
 
@@ -352,7 +314,7 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 		"site":       site,
 		"url":        fmt.Sprintf("%s/%s/", s.PublicURL, site),
 		"uploader":   identity,
-		"expires_at": m.ExpiresAt,
+		"expires_at": meta.ComputeExpiresAt(ttl),
 		"size_bytes": n,
 		"files":      1,
 	})
@@ -865,6 +827,58 @@ func writeErr(w http.ResponseWriter, code int, msg string) {
 
 // 確保 io 用到(實際呼叫上面已用)
 var _ = io.Copy
+
+// writeSiteHTML 把一份 HTML 內容落成一個站台(staging → meta → atomic rename)。
+// uploadSingle 與 generate 端點共用此邏輯,行為一致:force 時保留 KV、沿用舊 project_name。
+// 回傳寫入的 bytes 數。呼叫端負責先驗過 site / identity / force 衝突。
+func (s *Server) writeSiteHTML(site, identity, projectName, src, srcPath string, htmlBytes []byte, ttl int) (int64, error) {
+	siteDir := filepath.Join(s.Root, site)
+	var existingMeta *meta.Meta
+	if _, err := os.Stat(siteDir); err == nil {
+		existingMeta, _ = meta.Load(s.Root, site)
+	}
+	if projectName == "" && existingMeta != nil {
+		projectName = existingMeta.ProjectName
+	}
+
+	staging := siteDir + ".staging"
+	_ = os.RemoveAll(staging)
+	if err := os.MkdirAll(staging, 0o755); err != nil {
+		return 0, fmt.Errorf("mkdir: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(staging, "index.html"), htmlBytes, 0o644); err != nil {
+		_ = os.RemoveAll(staging)
+		return 0, fmt.Errorf("write: %w", err)
+	}
+	n := int64(len(htmlBytes))
+
+	now := time.Now()
+	m := &meta.Meta{
+		ProjectName: projectName,
+		Site:        site,
+		Uploader:    identity,
+		UploadedAt:  now,
+		TTLDays:     ttl,
+		ExpiresAt:   meta.ComputeExpiresAt(ttl),
+		Src:         src,
+		SrcPath:     srcPath,
+		SizeBytes:   n,
+		Files:       1,
+	}
+	mb, _ := json.MarshalIndent(m, "", "  ")
+	if err := os.WriteFile(filepath.Join(staging, meta.FileName), mb, 0o644); err != nil {
+		_ = os.RemoveAll(staging)
+		return 0, fmt.Errorf("write meta: %w", err)
+	}
+
+	preserveKVOnForce(siteDir, staging)
+	_ = os.RemoveAll(siteDir)
+	if err := os.Rename(staging, siteDir); err != nil {
+		_ = os.RemoveAll(staging)
+		return 0, fmt.Errorf("rename: %w", err)
+	}
+	return n, nil
+}
 
 // preserveKVOnForce 在 force 覆蓋舊站時保留 KV 資料目錄。
 //

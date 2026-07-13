@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -19,6 +20,9 @@ func main() {
 	root := flag.String("root", "/var/lib/wez-html", "site root dir")
 	publicURL := flag.String("public-url", "http://localhost:8090", "public URL (for upload response)")
 	reapInterval := flag.Duration("reap-interval", 6*time.Hour, "expired site sweep interval")
+	enableGenerate := flag.Bool("enable-generate", false, "enable AI website generation endpoint (/new, /api/generate) via claude -p")
+	claudeBin := flag.String("claude-bin", "", "path to claude CLI (default: look up 'claude' in PATH)")
+	genUser := flag.String("gen-user", "ai", "default uploader identity for generated sites")
 	flag.Parse()
 
 	if err := os.MkdirAll(*root, 0o755); err != nil {
@@ -35,6 +39,20 @@ func main() {
 	}
 
 	srv := handler.New(*root, *publicURL, indexHTML, string(faviconBytes))
+	if *enableGenerate {
+		bin := *claudeBin
+		if bin == "" {
+			if p, err := exec.LookPath("claude"); err == nil {
+				bin = p
+			}
+		}
+		if bin == "" {
+			log.Println("warning: --enable-generate set but 'claude' not found in PATH; generate endpoint disabled")
+		} else {
+			srv.GenCfg = handler.GenConfig{Enabled: true, ClaudeBin: bin, DefaultUser: *genUser}
+			log.Printf("AI generate endpoint enabled: /new  (claude=%s, default-user=%s)", bin, *genUser)
+		}
+	}
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 
