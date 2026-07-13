@@ -195,6 +195,7 @@
     </span>
     <span class="opsum">靜態站台代管 · 已上線 <b id="opTotal">–</b> 站 · 用量 <b id="opSize">–</b> · <span id="opVersion"></span></span>
     <nav class="topnav">
+      <a href="/new" id="navGenerate" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg>AI 生成</a>
       <a href="#upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>使用說明</a>
       <a href="#cli"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 9 12 4 17"/><line x1="12" y1="17" x2="20" y2="17"/></svg>CLI 指令</a>
       <a href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>重新整理</a>
@@ -355,6 +356,16 @@ document.getElementById('opVersion').textContent = VERSION;
 document.getElementById('statVersion').textContent = VERSION;
 document.getElementById('mVersion').textContent = VERSION;
 document.getElementById('footVersion').textContent = VERSION;
+
+// AI 生成入口:只有 wez server(有 --enable-generate)才有 /new;
+// 單一源皮共用,Cloudflare 端沒這功能 → 探測到才顯示,避免冒死連結。
+(function probeGenerate(){
+  const link = document.getElementById('navGenerate');
+  if (!link) return;
+  fetch('/new', { method: 'HEAD', cache: 'no-store' })
+    .then(r => { if (r.ok) link.style.display = ''; })
+    .catch(() => {});
+})();
 
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
