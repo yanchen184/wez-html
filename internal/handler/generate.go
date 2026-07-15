@@ -44,10 +44,11 @@ const (
 type genJob struct {
 	ID        string    `json:"id"`
 	Status    string    `json:"status"` // pending | running | done | error
-	Site      string    `json:"site"`
+	Site      string    `json:"site,omitempty"`
 	URL       string    `json:"url,omitempty"`
 	Error     string    `json:"error,omitempty"`
 	SizeBytes int64     `json:"size_bytes,omitempty"`
+	Draft     *tplInput `json:"draft,omitempty"` // AI 產模板草稿(templatesAI 的 job 才有)
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -119,6 +120,7 @@ func (s *Server) registerGenerate(mux *http.ServeMux, cfg GenConfig) {
 	mux.HandleFunc("/api/refine", func(w http.ResponseWriter, r *http.Request) {
 		s.refineStart(w, r, gs)
 	})
+	s.registerTemplates(mux, gs)
 	mux.HandleFunc("/new", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(generatePageHTML))
@@ -313,12 +315,9 @@ func (s *Server) generatePoll(w http.ResponseWriter, r *http.Request, gs *genSta
 	writeJSON(w, 200, snapshot)
 }
 
-func (gs *genState) run(s *Server, job *genJob, prompt, site, identity, projectName string) {
-	gs.sem <- struct{}{}
-	defer func() { <-gs.sem }()
-
-	gs.setStatus(job.ID, "running", "")
-
+// execClaude 跑 claude -p 拿輸出;逾時 / 失敗回人話錯誤訊息(errMsg != "" 即失敗)。
+// run 與 runTemplateDraft 共用。
+func (gs *genState) execClaude(prompt string) (out []byte, errMsg string) {
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)
 	defer cancel()
 
@@ -329,8 +328,7 @@ func (gs *genState) run(s *Server, job *genJob, prompt, site, identity, projectN
 	cmd.Env = append(os.Environ(), "CLAUDECODE=")
 	out, err := cmd.Output()
 	if ctx.Err() == context.DeadlineExceeded {
-		gs.finishErr(job.ID, "generation timed out")
-		return
+		return nil, "generation timed out"
 	}
 	if err != nil {
 		msg := fmt.Sprintf("claude failed: %v", err)
@@ -342,7 +340,20 @@ func (gs *genState) run(s *Server, job *genJob, prompt, site, identity, projectN
 			}
 			msg = fmt.Sprintf("claude failed: %v: %s", err, stderr)
 		}
-		gs.finishErr(job.ID, msg)
+		return nil, msg
+	}
+	return out, ""
+}
+
+func (gs *genState) run(s *Server, job *genJob, prompt, site, identity, projectName string) {
+	gs.sem <- struct{}{}
+	defer func() { <-gs.sem }()
+
+	gs.setStatus(job.ID, "running", "")
+
+	out, errMsg := gs.execClaude(prompt)
+	if errMsg != "" {
+		gs.finishErr(job.ID, errMsg)
 		return
 	}
 
@@ -400,6 +411,19 @@ func (gs *genState) reapLocked() {
 	}
 }
 
+// kvAPIDoc 教生成的頁面用「站台自帶的 KV 資料庫」。
+// 每個站台都有 /<site>/api/kv,生成頁用相對路徑就打得到自己的 KV,
+// 需要存資料的需求(留言板、報名、投票、待辦…)不必外接後端。
+const kvAPIDoc = `本站台自帶一個 key-value 資料庫 API,若需求需要「儲存/讀取資料」(例如留言板、報名表、投票、待辦清單),直接在頁面 JS 用 fetch 相對路徑操作它;純展示頁則不必使用:
+- 讀:GET api/kv/<key> → 回該 key 的 JSON;404 = 尚無資料
+- 寫:PUT api/kv/<key>,body 必須是合法 JSON(Content-Type: application/json)
+- 刪:DELETE api/kv/<key>
+- 列出:GET api/kv → {"keys":[{"key":...,"size_bytes":...}],...}
+- key 規則 ^[a-zA-Z0-9_-]{1,64}$,不支援巢狀;單值上限 256KB,整站上限 1000 keys / 10MB
+- 注意 fetch 一律用相對路徑(如 fetch('api/kv/messages')),頁面網址以 / 結尾,相對路徑會正確落在本站台底下
+- 沒有帳號權限機制,寫入是 last-write-wins;清單類資料(如留言)存成單一 key 裡的 JSON 陣列,讀出→append→寫回即可
+- 頁面初次載入讀到 404 時視為空資料,正常初始化,不要當錯誤顯示`
+
 // buildRefinePrompt 把「現有頁面 + 這輪修改指示」組成 prompt。
 // 重點是要 claude 在既有頁面上改,而不是重畫一頁無關的。
 func buildRefinePrompt(instruction, currentHTML string) string {
@@ -409,7 +433,8 @@ func buildRefinePrompt(instruction, currentHTML string) string {
 	b.WriteString("輸出一個『完整、自包含』的 HTML 頁面(含 <!doctype html>),所有 CSS/JS inline,")
 	b.WriteString("不引用任何外部 CDN。頁面第一個字元必須是 <,最後是 </html>。")
 	b.WriteString("只輸出 HTML 原始碼,不要 markdown 圍欄、不要任何說明文字。\n\n")
-	b.WriteString("修改需求:\n")
+	b.WriteString(kvAPIDoc)
+	b.WriteString("\n\n修改需求:\n")
 	b.WriteString(instruction)
 	b.WriteString("\n\n現有頁面:\n")
 	b.WriteString(currentHTML)
@@ -421,7 +446,8 @@ func buildPrompt(userReq, docText string) string {
 	b.WriteString("你是網頁生成器。請產生一個『完整、自包含』的 HTML 頁面(含 <!doctype html>),")
 	b.WriteString("所有 CSS/JS inline,不引用任何外部 CDN。頁面第一個字元必須是 <,最後是 </html>。")
 	b.WriteString("只輸出 HTML 原始碼,不要 markdown 圍欄、不要任何說明文字。\n\n")
-	b.WriteString("需求:\n")
+	b.WriteString(kvAPIDoc)
+	b.WriteString("\n\n需求:\n")
 	b.WriteString(userReq)
 	if strings.TrimSpace(docText) != "" {
 		b.WriteString("\n\n參考文件內容(依此製作頁面):\n")

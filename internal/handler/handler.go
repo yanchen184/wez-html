@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -41,6 +42,8 @@ type Server struct {
 
 	GenCfg GenConfig // claude -p 生成端點設定;Enabled=false 時不掛 /api/generate、/new
 	gen    *genState
+
+	tplMu sync.Mutex // 保護 .templates.json 的讀改寫
 }
 
 func New(root, publicURL string, indexHTML []byte, faviconSVG string) *Server {

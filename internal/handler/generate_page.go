@@ -49,12 +49,33 @@ const generatePageHTML = `<!doctype html>
   .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
   @media (max-width:560px) { .cards { grid-template-columns:repeat(2,1fr); } }
   .tcard { border:1px solid var(--line); border-radius:10px; padding:12px 10px; background:#fff;
-           cursor:pointer; text-align:center; transition:border-color .1s; }
+           cursor:pointer; text-align:center; transition:border-color .1s; position:relative; }
   .tcard:hover { border-color:#f9a8b8; }
   .tcard.sel { border-color:var(--red); background:rgba(225,29,72,.05); box-shadow:0 0 0 2px rgba(225,29,72,.15); }
   .tcard .ic { font-size:22px; }
   .tcard .nm { font-weight:600; font-size:13px; margin-top:4px; }
   .tcard .ds { color:var(--muted); font-size:11px; line-height:1.4; margin-top:2px; }
+  .tcard .ops { position:absolute; top:4px; right:6px; display:none; }
+  .tcard:hover .ops { display:block; }
+  .tcard .op { cursor:pointer; font-size:12px; margin-left:4px; opacity:.65; }
+  .tcard .op:hover { opacity:1; }
+  .tcard .badge { position:absolute; top:4px; left:6px; font-size:10px; color:var(--red);
+                  background:rgba(225,29,72,.08); border-radius:6px; padding:0 5px; }
+  .tcard.addcard { border-style:dashed; color:var(--muted); }
+  /* 自訂模板編輯器 */
+  #tpled { display:none; margin-top:14px; padding:16px; border:1px dashed var(--line);
+           border-radius:10px; background:#fcfcfd; }
+  #tpled.show { display:block; }
+  #tpled .tpled-head { font-weight:700; font-size:14px; }
+  .ai-row { display:flex; gap:8px; margin-top:10px; }
+  .ai-row input { flex:1; }
+  .btn2 { background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 14px;
+          font-size:14px; font-weight:600; color:var(--ink); cursor:pointer; white-space:nowrap; }
+  .btn2:hover { border-color:var(--red); color:var(--red); }
+  .btn2:disabled { opacity:.5; cursor:not-allowed; }
+  #te-st { margin-top:10px; font-size:13px; min-height:18px; }
+  #te-st.bad { color:#991b1b; }
+  #te-st.okc { color:#166534; }
   #status { margin-top:22px; padding:16px; border-radius:10px; font-size:14px; display:none; }
   #status.show { display:block; }
   #status.run { background:#fef3c7; border:1px solid #fde68a; color:#92400e; }
@@ -95,8 +116,32 @@ const generatePageHTML = `<!doctype html>
       </div>
 
       <div class="sec" id="sec-tpl">
-        <label style="margin-top:0">選一個模板</label>
+        <label style="margin-top:0">選一個模板<span class="hint">內建之外也可以自己做,或讓 AI 幫你做</span></label>
         <div class="cards" id="cards"></div>
+
+        <div id="tpled">
+          <div class="tpled-head" id="te-title">新增自訂模板</div>
+          <div class="ai-row">
+            <input type="text" id="te-aidesc" placeholder="描述想要的模板,例:客訴處理進度看板,要能看出每件的狀態">
+            <button type="button" class="btn2" id="te-ai">🤖 AI 幫我寫</button>
+          </div>
+          <div class="row">
+            <div><label>名稱</label><input type="text" id="te-name" placeholder="客訴看板"></div>
+            <div style="flex:0 0 90px"><label>圖示</label><input type="text" id="te-icon" placeholder="📌"></div>
+          </div>
+          <label>一句話說明</label>
+          <input type="text" id="te-desc" placeholder="追蹤客訴處理進度">
+          <label>模板提示詞<span class="hint">描述頁面型態、區塊、風格;生成時會自動接上使用者貼的內容</span></label>
+          <textarea id="te-prompt" placeholder="做一頁客訴追蹤看板:頂部統計數字卡,下方每件客訴一張卡,狀態用顏色標示…"></textarea>
+          <label>你的代號<span class="hint">之後只有這個代號能改/刪這張模板</span></label>
+          <input type="text" id="te-identity" placeholder="bob">
+          <div class="row" style="margin-top:14px">
+            <button type="button" class="main" id="te-save" style="margin-top:0">儲存模板</button>
+            <button type="button" class="btn2" id="te-cancel">取消</button>
+          </div>
+          <div id="te-st"></div>
+        </div>
+
         <label>你的內容<span class="hint">標題、重點、名單…想放進頁面的東西直接貼</span></label>
         <textarea id="tplcontent" placeholder="例:6/30 部門週會|議題:Q3 目標(Bob)、新人報到(Amy)、系統改版進度(YC)"></textarea>
       </div>
@@ -166,19 +211,142 @@ const generatePageHTML = `<!doctype html>
   var lastSite = '';      // 生成成功後鎖定的站台,refine 就改這一個
   var lastIdentity = '';
 
-  // 模板卡渲染 + 點選
+  // 模板卡渲染 + 點選(內建 TPL + 使用者自訂,自訂卡可編輯/刪除)
   var cardsEl = document.getElementById('cards');
-  TPL.forEach(function(t){
+  var userTPL = [];
+  var selTplId = null;
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function addCard(key, ic, nm, ds, prompt, ut){
     var d = document.createElement('div');
-    d.className = 'tcard';
-    d.innerHTML = '<div class="ic">'+t.ic+'</div><div class="nm">'+t.nm+'</div><div class="ds">'+t.ds+'</div>';
-    d.addEventListener('click', function(){
-      selTpl = t;
-      var all = cardsEl.querySelectorAll('.tcard');
-      for (var i=0;i<all.length;i++) all[i].className = 'tcard';
-      d.className = 'tcard sel';
+    d.className = 'tcard' + (selTplId === key ? ' sel' : '');
+    d.innerHTML = '<div class="ic">'+esc(ic)+'</div><div class="nm">'+esc(nm)+'</div><div class="ds">'+esc(ds)+'</div>'
+      + (ut ? '<div class="ops"><span class="op" data-op="e" title="編輯">✏️</span><span class="op" data-op="d" title="刪除">🗑️</span></div><div class="badge">自訂</div>' : '');
+    d.addEventListener('click', function(ev){
+      var op = ev.target && ev.target.getAttribute ? ev.target.getAttribute('data-op') : null;
+      if (op === 'e') { ev.stopPropagation(); openEditor(ut); return; }
+      if (op === 'd') { ev.stopPropagation(); delTpl(ut); return; }
+      selTplId = key;
+      selTpl = { p: prompt };
+      renderCards();
     });
     cardsEl.appendChild(d);
+  }
+
+  function renderCards(){
+    cardsEl.innerHTML = '';
+    TPL.forEach(function(t){ addCard('b:'+t.id, t.ic, t.nm, t.ds, t.p, null); });
+    userTPL.forEach(function(t){ addCard('u:'+t.id, t.icon, t.name, t.desc, t.prompt, t); });
+    var add = document.createElement('div');
+    add.className = 'tcard addcard';
+    add.innerHTML = '<div class="ic">➕</div><div class="nm">自訂模板</div><div class="ds">自己寫,或讓 AI 幫你寫</div>';
+    add.addEventListener('click', function(){ openEditor(null); });
+    cardsEl.appendChild(add);
+  }
+
+  function loadUserTpl(){
+    fetch('/api/templates')
+      .then(function(r){ return r.json(); })
+      .then(function(j){ userTPL = (j && j.templates) || []; renderCards(); })
+      .catch(function(){ renderCards(); });
+  }
+  loadUserTpl();
+
+  // --- 自訂模板編輯器 ---
+  var tpled = document.getElementById('tpled');
+  var teSt = document.getElementById('te-st');
+  var editingId = null;
+
+  function setTeSt(html, bad){ teSt.className = bad ? 'bad' : 'okc'; teSt.innerHTML = html; }
+
+  function openEditor(t){
+    editingId = t ? t.id : null;
+    document.getElementById('te-title').textContent = t ? '編輯模板:'+t.name : '新增自訂模板';
+    document.getElementById('te-name').value = t ? t.name : '';
+    document.getElementById('te-icon').value = t ? t.icon : '';
+    document.getElementById('te-desc').value = t ? (t.desc||'') : '';
+    document.getElementById('te-prompt').value = t ? t.prompt : '';
+    document.getElementById('te-identity').value = t ? t.identity : document.getElementById('identity').value.trim();
+    document.getElementById('te-aidesc').value = '';
+    setTeSt('', false);
+    tpled.className = 'show';
+    tpled.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  document.getElementById('te-cancel').addEventListener('click', function(){
+    tpled.className = ''; editingId = null;
+  });
+
+  document.getElementById('te-save').addEventListener('click', function(){
+    var body = {
+      name: document.getElementById('te-name').value.trim(),
+      icon: document.getElementById('te-icon').value.trim(),
+      desc: document.getElementById('te-desc').value.trim(),
+      prompt: document.getElementById('te-prompt').value.trim(),
+      identity: document.getElementById('te-identity').value.trim()
+    };
+    if (!body.name) { setTeSt('請填模板名稱', true); return; }
+    if (!body.prompt) { setTeSt('請填模板提示詞', true); return; }
+    if (!/^[a-zA-Z0-9_-]{1,20}$/.test(body.identity)) { setTeSt('代號格式:英數 _ - ,1~20 字', true); return; }
+    var url = editingId ? '/api/templates/'+editingId : '/api/templates';
+    fetch(url, { method: editingId ? 'PUT' : 'POST',
+                 headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if (!res.ok) { setTeSt('儲存失敗:'+(res.j.error||''), true); return; }
+        tpled.className = ''; editingId = null;
+        loadUserTpl();
+      })
+      .catch(function(e){ setTeSt('儲存失敗:'+e, true); });
+  });
+
+  function delTpl(t){
+    var who = document.getElementById('identity').value.trim() || t.identity;
+    if (!confirm('刪除模板「'+t.name+'」?')) return;
+    fetch('/api/templates/'+t.id, { method:'DELETE',
+                 headers: {'Content-Type':'application/json'}, body: JSON.stringify({identity: who}) })
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if (!res.ok) { show('err','刪除失敗:'+(res.j.error||'')); return; }
+        if (selTplId === 'u:'+t.id) { selTplId = null; selTpl = null; }
+        loadUserTpl();
+      })
+      .catch(function(e){ show('err','刪除失敗:'+e); });
+  }
+
+  // AI 幫我寫:描述 → /api/templates/ai → 輪詢 job → 草稿填進表單
+  document.getElementById('te-ai').addEventListener('click', function(){
+    var btn = this;
+    var d = document.getElementById('te-aidesc').value.trim();
+    if (!d) { setTeSt('先描述想要的模板長什麼樣', true); return; }
+    btn.disabled = true;
+    setTeSt('<span class="spin"></span>AI 產生模板草稿中(約 30 秒~1 分鐘)…', false);
+    fetch('/api/templates/ai', { method:'POST',
+                 headers: {'Content-Type':'application/json'}, body: JSON.stringify({desc: d}) })
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if (!res.ok || !res.j.job) { btn.disabled = false; setTeSt('送出失敗:'+(res.j.error||''), true); return; }
+        var p = setInterval(function(){
+          fetch('/api/generate/'+res.j.job).then(function(r){ return r.json(); }).then(function(j){
+            if (j.status === 'done' && j.draft) {
+              clearInterval(p); btn.disabled = false;
+              document.getElementById('te-name').value = j.draft.name || '';
+              document.getElementById('te-icon').value = j.draft.icon || '';
+              document.getElementById('te-desc').value = j.draft.desc || '';
+              document.getElementById('te-prompt').value = j.draft.prompt || '';
+              setTeSt('✅ 草稿完成,確認或修改後按「儲存模板」', false);
+            } else if (j.status === 'error') {
+              clearInterval(p); btn.disabled = false;
+              setTeSt('AI 失敗:'+(j.error||''), true);
+            }
+          }).catch(function(){ /* 下次再試 */ });
+        }, 2500);
+      })
+      .catch(function(e){ btn.disabled = false; setTeSt('送出失敗:'+e, true); });
   });
 
   // 頁籤切換
