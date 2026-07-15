@@ -23,8 +23,8 @@ import (
 
 const (
 	DataDirName  = ".data"
-	MaxValueSize = 256 * 1024     // 256KB / value
-	MaxKeys      = 1000           // 1000 keys / site
+	MaxValueSize = 256 * 1024       // 256KB / value
+	MaxKeys      = 1000             // 1000 keys / site
 	MaxTotalSize = 10 * 1024 * 1024 // 10MB / site
 )
 

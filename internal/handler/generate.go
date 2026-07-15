@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yanchen184/wez-html/internal/docextract"
 	"github.com/yanchen184/wez-html/internal/meta"
 )
 
@@ -154,30 +156,39 @@ func (s *Server) generateStart(w http.ResponseWriter, r *http.Request, gs *genSt
 		return
 	}
 
-	// 選用:上傳文件內容併入 prompt
+	// 選用:上傳文件內容併入 prompt。
+	// Office 檔(docx/xlsx/pptx)是 zip 二進位,要整份讀完才能解,不能邊讀邊截;
+	// 純文字檔照舊。兩邊最後都以 rune 數截斷。
 	var docText string
-	if file, _, err := r.FormFile("doc"); err == nil {
+	if file, hdr, err := r.FormFile("doc"); err == nil {
 		defer file.Close()
-		buf := make([]byte, 0, 64*1024)
-		tmp := make([]byte, 32*1024)
-		for {
-			n, rerr := file.Read(tmp)
-			buf = append(buf, tmp[:n]...)
-			if len([]rune(string(buf))) > maxDocRunes || rerr != nil {
-				break
-			}
+		data, rerr := io.ReadAll(io.LimitReader(file, 8<<20))
+		if rerr != nil {
+			writeErr(w, 400, fmt.Sprintf("read doc: %v", rerr))
+			return
 		}
-		docText = string(buf)
+		if docextract.Supported(hdr.Filename) {
+			docText, err = docextract.Extract(hdr.Filename, data)
+			if err != nil {
+				writeErr(w, 400, fmt.Sprintf("cannot parse document: %v", err))
+				return
+			}
+		} else {
+			docText = string(data)
+		}
 		if rs := []rune(docText); len(rs) > maxDocRunes {
-			docText = string(rs[:maxDocRunes])
+			docText = string(rs[:maxDocRunes]) + "\n…(內容過長已截斷)"
 		}
 	}
 
-	fullPrompt := buildPrompt(prompt, docText)
-	if len([]rune(fullPrompt)) > maxPromptRunes {
-		writeErr(w, 400, fmt.Sprintf("prompt+doc too long (max %d chars)", maxPromptRunes))
+	// prompt 與文件各有各的上限:prompt 限 maxPromptRunes,
+	// docText 上面已截斷到 maxDocRunes,不再做合計檢查
+	// (合計檢查會讓超過 8000 字的文件永遠 400,截斷形同虛設)。
+	if len([]rune(prompt)) > maxPromptRunes {
+		writeErr(w, 400, fmt.Sprintf("prompt too long (max %d chars)", maxPromptRunes))
 		return
 	}
+	fullPrompt := buildPrompt(prompt, docText)
 
 	// 站台衝突檢查(跟 uploadSingle 同語意)
 	if _, err := os.Stat(filepath.Join(s.Root, site)); err == nil && !force {

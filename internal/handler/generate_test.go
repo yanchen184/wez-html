@@ -95,6 +95,35 @@ func TestBuildPrompt(t *testing.T) {
 	}
 }
 
+// 上傳壞掉的 Office 檔 → 400,不能默默當純文字餵進 prompt。
+func TestGenerateCorruptOfficeDoc(t *testing.T) {
+	root := t.TempDir()
+	s := New(root, "http://x", nil, "")
+	s.GenCfg = GenConfig{Enabled: true, ClaudeBin: "/nonexistent/claude", DefaultUser: "ai"}
+	mux := http.NewServeMux()
+	s.Routes(mux)
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("prompt", "做一頁")
+	_ = mw.WriteField("site", "doc-test")
+	_ = mw.WriteField("identity", "ai")
+	fw, _ := mw.CreateFormFile("doc", "report.xlsx")
+	_, _ = fw.Write([]byte("this is not a real xlsx"))
+	_ = mw.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/generate", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "document") {
+		t.Errorf("error should mention document parsing: %s", rec.Body.String())
+	}
+}
+
 func TestBuildRefinePrompt(t *testing.T) {
 	cur := "<!doctype html><html><body>old</body></html>"
 	p := buildRefinePrompt("把標題改成紅色", cur)
