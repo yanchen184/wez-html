@@ -95,6 +95,65 @@ func TestBuildPrompt(t *testing.T) {
 	}
 }
 
+func TestBuildRefinePrompt(t *testing.T) {
+	cur := "<!doctype html><html><body>old</body></html>"
+	p := buildRefinePrompt("把標題改成紅色", cur)
+	if !strings.Contains(p, "把標題改成紅色") {
+		t.Error("missing refine instruction")
+	}
+	if !strings.Contains(p, cur) {
+		t.Error("missing current HTML as base")
+	}
+}
+
+// refine 針對不存在的站台 → 404。
+func TestRefineMissingSite(t *testing.T) {
+	root := t.TempDir()
+	s := New(root, "http://x", nil, "")
+	s.GenCfg = GenConfig{Enabled: true, ClaudeBin: "/nonexistent/claude", DefaultUser: "ai"}
+	mux := http.NewServeMux()
+	s.Routes(mux)
+
+	body, ct := multipartForm(map[string]string{
+		"prompt":   "改紅色",
+		"site":     "ghost",
+		"identity": "ai",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/refine", body)
+	req.Header.Set("Content-Type", ct)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("want 404, got %d (%s)", rec.Code, rec.Body.String())
+	}
+}
+
+// refine 只有原上傳者能改(沿用 delete/rename 的擁有者語意)。
+func TestRefineWrongUploader(t *testing.T) {
+	root := t.TempDir()
+	s := New(root, "http://x", nil, "")
+	s.GenCfg = GenConfig{Enabled: true, ClaudeBin: "/nonexistent/claude", DefaultUser: "ai"}
+	mux := http.NewServeMux()
+	s.Routes(mux)
+
+	if _, err := s.writeSiteHTML("mine", "bob", "", "generated", "", []byte("<html></html>"), DefaultTTL); err != nil {
+		t.Fatal(err)
+	}
+
+	body, ct := multipartForm(map[string]string{
+		"prompt":   "改紅色",
+		"site":     "mine",
+		"identity": "eve",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/refine", body)
+	req.Header.Set("Content-Type", ct)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("want 403, got %d (%s)", rec.Code, rec.Body.String())
+	}
+}
+
 // generate 端點在 GenCfg.Enabled=false 時不應掛載 /new、/api/generate。
 func TestGenerateDisabledByDefault(t *testing.T) {
 	s := New(t.TempDir(), "http://x", nil, "")

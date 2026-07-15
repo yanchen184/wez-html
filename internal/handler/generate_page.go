@@ -45,6 +45,9 @@ const generatePageHTML = `<!doctype html>
   .spin { display:inline-block; width:14px; height:14px; border:2px solid currentColor;
           border-top-color:transparent; border-radius:50%; animation:s .7s linear infinite; vertical-align:-2px; margin-right:6px; }
   @keyframes s { to { transform:rotate(360deg); } }
+  #refine { display:none; margin-top:24px; padding-top:22px; border-top:1px dashed var(--line); }
+  #refine.show { display:block; }
+  #refine textarea { min-height:90px; }
   .foot { text-align:center; color:var(--muted); font-size:13px; margin-top:26px; }
   .foot a { color:var(--red); text-decoration:none; }
 </style>
@@ -85,6 +88,12 @@ const generatePageHTML = `<!doctype html>
       <button type="submit" id="go">生成並上線</button>
     </form>
     <div id="status"></div>
+
+    <div id="refine">
+      <label>不滿意?繼續下提示詞修改<span class="hint">會在現在這一頁上改,不是重畫一頁</span></label>
+      <textarea id="rprompt" placeholder="例:標題改成深藍色、把倒數計時器拿掉、議題再多加兩條。"></textarea>
+      <button type="button" id="rgo">套用修改</button>
+    </div>
   </div>
 
   <p class="foot"><a href="/">← 回站台列表</a></p>
@@ -95,9 +104,17 @@ const generatePageHTML = `<!doctype html>
   var f = document.getElementById('f');
   var go = document.getElementById('go');
   var st = document.getElementById('status');
+  var refine = document.getElementById('refine');
+  var rgo = document.getElementById('rgo');
+  var rprompt = document.getElementById('rprompt');
   var poll = null;
+  var lastSite = '';      // 生成成功後鎖定的站台,refine 就改這一個
+  var lastIdentity = '';
 
   function show(cls, html){ st.className = 'show ' + cls; st.innerHTML = html; }
+  function busy(b){ go.disabled = b; rgo.disabled = b; }
+  // 加 cache-bust,避免改完點進去看到瀏覽器快取的舊頁。
+  function bust(u){ return u + '?v=' + Date.now(); }
 
   f.addEventListener('submit', function(e){
     e.preventDefault();
@@ -117,30 +134,56 @@ const generatePageHTML = `<!doctype html>
     var df = document.getElementById('doc').files[0];
     if (df) fd.append('doc', df);
 
-    go.disabled = true;
+    busy(true);
     show('run','<span class="spin"></span>已送出,claude 生成中(約 1~2 分鐘,請勿關閉)…');
 
     fetch('/api/generate', { method:'POST', body:fd })
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, s:r.status, j:j}; }); })
       .then(function(res){
-        if (res.s === 409) { go.disabled=false; show('err','站台「'+site+'」已被 '+(res.j.existing_uploader||'某人')+' 使用,勾選 force 可覆蓋。'); return; }
-        if (!res.ok || !res.j.job) { go.disabled=false; show('err','送出失敗:'+(res.j.error||res.s)); return; }
-        startPoll(res.j.job);
+        if (res.s === 409) { busy(false); show('err','站台「'+site+'」已被 '+(res.j.existing_uploader||'某人')+' 使用,勾選 force 可覆蓋。'); return; }
+        if (!res.ok || !res.j.job) { busy(false); show('err','送出失敗:'+(res.j.error||res.s)); return; }
+        lastSite = site; lastIdentity = identity;
+        startPoll(res.j.job, '生成');
       })
-      .catch(function(err){ go.disabled=false; show('err','送出失敗:'+err); });
+      .catch(function(err){ busy(false); show('err','送出失敗:'+err); });
   });
 
-  function startPoll(job){
+  rgo.addEventListener('click', function(){
+    if (poll) { clearInterval(poll); poll = null; }
+    var instruction = rprompt.value.trim();
+    if (!instruction) { show('err','請先輸入要改什麼'); return; }
+    if (!lastSite) { show('err','請先生成一頁再修改'); return; }
+
+    var fd = new FormData();
+    fd.append('prompt', instruction);
+    fd.append('site', lastSite);
+    fd.append('identity', lastIdentity);
+
+    busy(true);
+    show('run','<span class="spin"></span>修改中(約 1~2 分鐘,請勿關閉)…');
+
+    fetch('/api/refine', { method:'POST', body:fd })
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, s:r.status, j:j}; }); })
+      .then(function(res){
+        if (!res.ok || !res.j.job) { busy(false); show('err','送出失敗:'+(res.j.error||res.s)); return; }
+        startPoll(res.j.job, '修改');
+      })
+      .catch(function(err){ busy(false); show('err','送出失敗:'+err); });
+  });
+
+  function startPoll(job, verb){
     poll = setInterval(function(){
       fetch('/api/generate/'+job).then(function(r){ return r.json(); }).then(function(j){
         if (j.status === 'done') {
-          clearInterval(poll); poll=null; go.disabled=false;
-          show('ok','✅ 已上線!<br><a href="'+j.url+'" target="_blank">'+j.url+'</a> ('+(j.size_bytes||0)+' bytes)');
+          clearInterval(poll); poll=null; busy(false);
+          refine.className = 'show';
+          rprompt.value = '';
+          show('ok','✅ 已'+verb+'完成並上線!<br><a href="'+bust(j.url)+'" target="_blank">'+j.url+'</a> ('+(j.size_bytes||0)+' bytes)<br>不滿意的話,下面可以繼續下提示詞改。');
         } else if (j.status === 'error') {
-          clearInterval(poll); poll=null; go.disabled=false;
-          show('err','生成失敗:'+(j.error||'unknown'));
+          clearInterval(poll); poll=null; busy(false);
+          show('err',verb+'失敗:'+(j.error||'unknown'));
         } else {
-          show('run','<span class="spin"></span>生成中('+(j.status||'…')+')…請稍候');
+          show('run','<span class="spin"></span>'+verb+'中('+(j.status||'…')+')…請稍候');
         }
       }).catch(function(){ /* 輪詢暫時失敗就下次再試 */ });
     }, 2500);

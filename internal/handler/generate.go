@@ -30,11 +30,13 @@ import (
 //   - 站台名 / identity 沿用既有 regex 驗證
 
 const (
-	maxPromptRunes   = 8000            // prompt + 文件內容合計上限
-	maxDocRunes      = 30000           // 上傳文件內容上限(會截斷)
-	genTimeout       = 3 * time.Minute // 單次生成上限
-	maxConcurrentGen = 3               // 同時生成數
-	genJobTTL        = 30 * time.Minute
+	maxPromptRunes = 8000 // prompt + 文件內容合計上限
+	// refine 要把整頁 HTML 當基底帶回去,上限比 generate 寬。
+	maxRefinePromptRunes = 60000
+	maxDocRunes          = 30000           // 上傳文件內容上限(會截斷)
+	genTimeout           = 3 * time.Minute // 單次生成上限
+	maxConcurrentGen     = 3               // 同時生成數
+	genJobTTL            = 30 * time.Minute
 )
 
 type genJob struct {
@@ -111,6 +113,9 @@ func (s *Server) registerGenerate(mux *http.ServeMux, cfg GenConfig) {
 	})
 	mux.HandleFunc("/api/generate/", func(w http.ResponseWriter, r *http.Request) {
 		s.generatePoll(w, r, gs)
+	})
+	mux.HandleFunc("/api/refine", func(w http.ResponseWriter, r *http.Request) {
+		s.refineStart(w, r, gs)
 	})
 	mux.HandleFunc("/new", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -195,6 +200,80 @@ func (s *Server) generateStart(w http.ResponseWriter, r *http.Request, gs *genSt
 	gs.mu.Unlock()
 
 	go gs.run(s, job, fullPrompt, site, identity, projectName)
+
+	writeJSON(w, 202, map[string]any{
+		"status": "accepted",
+		"job":    job.ID,
+		"poll":   fmt.Sprintf("/api/generate/%s", job.ID),
+	})
+}
+
+// refineStart — 對「已存在的站台」再下一輪提示詞修改:讀回目前的 index.html 當基底,
+// 連同修改指示餵回 claude 重生,覆蓋同一站台(沿用 generate 的 job/輪詢機制)。
+//
+// 與 generate 的差異:站台必須已存在(404),且只有原上傳者能改(403,同 delete/rename 語意)。
+func (s *Server) refineStart(w http.ResponseWriter, r *http.Request, gs *genState) {
+	if r.Method != http.MethodPost {
+		writeErr(w, 405, "POST only")
+		return
+	}
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		writeErr(w, 400, fmt.Sprintf("parse form: %v", err))
+		return
+	}
+	instruction := strings.TrimSpace(r.FormValue("prompt"))
+	site := strings.TrimSpace(r.FormValue("site"))
+	identity := strings.TrimSpace(r.FormValue("identity"))
+	if identity == "" {
+		identity = gs.cfg.DefaultUser
+	}
+
+	if instruction == "" {
+		writeErr(w, 400, "prompt required")
+		return
+	}
+	if !siteRe.MatchString(site) {
+		writeErr(w, 400, "site must match ^[a-z0-9-]{1,40}$")
+		return
+	}
+	if !identityRe.MatchString(identity) {
+		writeErr(w, 400, "identity must match ^[a-zA-Z0-9_-]{1,20}$")
+		return
+	}
+
+	m, err := meta.Load(s.Root, site)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeErr(w, 404, "site not found — generate it first")
+			return
+		}
+		writeErr(w, 500, err.Error())
+		return
+	}
+	if m.Uploader != identity {
+		writeErr(w, 403, fmt.Sprintf("only original uploader (%s) can refine", m.Uploader))
+		return
+	}
+
+	current, err := os.ReadFile(filepath.Join(s.Root, site, "index.html"))
+	if err != nil {
+		writeErr(w, 500, fmt.Sprintf("read current page: %v", err))
+		return
+	}
+
+	fullPrompt := buildRefinePrompt(instruction, string(current))
+	if len([]rune(fullPrompt)) > maxRefinePromptRunes {
+		writeErr(w, 400, "page too large to refine — regenerate instead")
+		return
+	}
+
+	job := &genJob{ID: genID(), Status: "pending", Site: site, CreatedAt: time.Now()}
+	gs.mu.Lock()
+	gs.jobs[job.ID] = job
+	gs.reapLocked()
+	gs.mu.Unlock()
+
+	go gs.run(s, job, fullPrompt, site, identity, m.ProjectName)
 
 	writeJSON(w, 202, map[string]any{
 		"status": "accepted",
@@ -308,6 +387,22 @@ func (gs *genState) reapLocked() {
 			delete(gs.jobs, id)
 		}
 	}
+}
+
+// buildRefinePrompt 把「現有頁面 + 這輪修改指示」組成 prompt。
+// 重點是要 claude 在既有頁面上改,而不是重畫一頁無關的。
+func buildRefinePrompt(instruction, currentHTML string) string {
+	var b strings.Builder
+	b.WriteString("你是網頁編輯器。下面是一個現有的 HTML 頁面,請依照修改需求改它,")
+	b.WriteString("保留沒被要求改動的部分(內容、結構、風格都不要無故重寫)。\n")
+	b.WriteString("輸出一個『完整、自包含』的 HTML 頁面(含 <!doctype html>),所有 CSS/JS inline,")
+	b.WriteString("不引用任何外部 CDN。頁面第一個字元必須是 <,最後是 </html>。")
+	b.WriteString("只輸出 HTML 原始碼,不要 markdown 圍欄、不要任何說明文字。\n\n")
+	b.WriteString("修改需求:\n")
+	b.WriteString(instruction)
+	b.WriteString("\n\n現有頁面:\n")
+	b.WriteString(currentHTML)
+	return b.String()
 }
 
 func buildPrompt(userReq, docText string) string {
