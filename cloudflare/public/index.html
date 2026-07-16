@@ -128,6 +128,9 @@
   td.actions .row-acts { display:inline-flex; align-items:center; gap:6px; justify-content:flex-end; }
   a.icon-act, button.icon-act { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; text-decoration:none; padding:0; }
   a.icon-act:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  /* 線上編輯入口只在 wez server(有 /edit)顯示,探測成功才掛 body.has-edit */
+  .row-acts .edit-act { display:none; }
+  body.has-edit .row-acts .edit-act { display:inline-flex; }
   button.icon-act.del { border-color:var(--danger-line); color:#fff; background:var(--accent); }
   button.icon-act.del:hover { background:#b91c1c; border-color:#b91c1c; }
   a.icon-act svg, button.icon-act svg { width:15px; height:15px; }
@@ -196,6 +199,7 @@
     <span class="opsum">靜態站台代管 · 已上線 <b id="opTotal">–</b> 站 · 用量 <b id="opSize">–</b> · <span id="opVersion"></span></span>
     <nav class="topnav">
       <a href="/new" id="navGenerate" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg>AI 生成</a>
+      <a href="/edit" id="navEdit" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>線上編輯</a>
       <a href="#upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>使用說明</a>
       <a href="#cli"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 9 12 4 17"/><line x1="12" y1="17" x2="20" y2="17"/></svg>CLI 指令</a>
       <a href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>重新整理</a>
@@ -367,6 +371,18 @@ document.getElementById('footVersion').textContent = VERSION;
     .catch(() => {});
 })();
 
+// 線上編輯入口:同樣只有 wez server 才有 /edit;探測到才顯示 topnav 連結 + 各站台列的 ✏️。
+(function probeEdit(){
+  fetch('/edit', { method: 'HEAD', cache: 'no-store' })
+    .then(r => {
+      if (!r.ok) return;
+      const link = document.getElementById('navEdit');
+      if (link) link.style.display = '';
+      document.body.classList.add('has-edit');
+    })
+    .catch(() => {});
+})();
+
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -413,6 +429,7 @@ function rowHtml(s) {
     '<td class="srcpath" title="' + escapeAttr(s.src_path || '') + '">' + (s.src_path ? escapeHtml(s.src_path) : '—') + '</td>' +
     '<td class="actions"><span class="row-acts">' +
       '<a class="icon-act" href="/' + encodeURIComponent(s.name) + '/" target="_blank" title="開啟站台" aria-label="開啟站台">' + OPEN_SVG + '</a>' +
+      '<a class="icon-act edit-act" href="/edit?site=' + encodeURIComponent(s.name) + '" title="線上編輯" aria-label="線上編輯">' + EDIT_SVG + '</a>' +
       '<button class="icon-act" onclick="renameSite(\'' + escapeAttr(s.name) + '\',\'' + escapeAttr(s.uploader) + '\')" title="改名" aria-label="改名">' + EDIT_SVG + '</button>' +
       '<button class="icon-act del" onclick="deleteSite(\'' + escapeAttr(s.name) + '\',\'' + escapeAttr(s.uploader) + '\')" title="刪除站台" aria-label="刪除站台">' + DEL_SVG + '</button>' +
     '</span></td></tr>';

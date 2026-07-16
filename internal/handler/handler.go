@@ -53,6 +53,7 @@ func New(root, publicURL string, indexHTML []byte, faviconSVG string) *Server {
 func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/upload", s.upload)
 	mux.HandleFunc("/api/upload-single", s.uploadSingle)
+	mux.HandleFunc("/api/save-html", s.saveHTML)
 	mux.HandleFunc("/api/sites", s.listSites)
 	mux.HandleFunc("/api/site/", s.siteAPI)
 	mux.HandleFunc("/favicon.svg", s.favicon)
@@ -323,6 +324,75 @@ func (s *Server) uploadSingle(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// saveHTML — 線上手動編輯的存檔端點:整份覆蓋既有站台的 index.html。
+// 與 upload-single force=1 的差異:站台必須已存在(404),且只有原上傳者能存
+// (403,同 refine/delete 語意)— force=1 沒有擁有者檢查,不能拿來當存檔用。
+func (s *Server) saveHTML(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, 405, "POST only")
+		return
+	}
+	var body struct {
+		Site     string `json:"site"`
+		Identity string `json:"identity"`
+		HTML     string `json:"html"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, int64(archive.MaxFileSize+1024*1024))).Decode(&body); err != nil {
+		writeErr(w, 400, "bad json")
+		return
+	}
+	site := strings.TrimSpace(body.Site)
+	identity := strings.TrimSpace(body.Identity)
+	if !siteRe.MatchString(site) {
+		writeErr(w, 400, "site must match ^[a-z0-9-]{1,40}$")
+		return
+	}
+	if !identityRe.MatchString(identity) {
+		writeErr(w, 400, "identity must match ^[a-zA-Z0-9_-]{1,20}$")
+		return
+	}
+	if strings.TrimSpace(body.HTML) == "" {
+		writeErr(w, 400, "html required")
+		return
+	}
+	if int64(len(body.HTML)) > archive.MaxFileSize {
+		writeErr(w, 400, fmt.Sprintf("html too big (max %dMB)", archive.MaxFileSize/1024/1024))
+		return
+	}
+
+	m, err := meta.Load(s.Root, site)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeErr(w, 404, "site not found")
+			return
+		}
+		writeErr(w, 500, err.Error())
+		return
+	}
+	if m.Uploader != identity {
+		writeErr(w, 403, fmt.Sprintf("only original uploader (%s) can edit", m.Uploader))
+		return
+	}
+
+	ttl := m.TTLDays
+	if ttl < MinTTL || ttl > MaxTTL {
+		ttl = DefaultTTL
+	}
+	n, err := s.writeSiteHTML(site, identity, m.ProjectName, "edit", "", []byte(body.HTML), ttl)
+	if err != nil {
+		writeErr(w, 500, err.Error())
+		return
+	}
+
+	log.Printf("save-html: site=%s by=%s size=%d", site, identity, n)
+	writeJSON(w, 200, map[string]any{
+		"status":     "ok",
+		"site":       site,
+		"url":        fmt.Sprintf("%s/%s/", s.PublicURL, site),
+		"size_bytes": n,
+	})
+}
+
 func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, site string) {
 	var body struct {
 		Identity string `json:"identity"`
@@ -350,7 +420,13 @@ func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, site string)
 		writeErr(w, 500, err.Error())
 		return
 	}
-	log.Printf("delete: site=%s by=%s", site, body.Identity)
+	// 帶來源位址:曾發生來源不明的刪站(2026-07-16 edit-test-yc),事後無從追查。
+	// 走 caddy 代理時 RemoteAddr 是本機,補 X-Forwarded-For 才看得到真實來源。
+	from := r.RemoteAddr
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		from = xff + " (" + r.RemoteAddr + ")"
+	}
+	log.Printf("delete: site=%s by=%s from=%s", site, body.Identity, from)
 	writeJSON(w, 200, map[string]any{"status": "deleted", "site": site})
 }
 

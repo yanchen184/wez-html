@@ -125,6 +125,10 @@ func (s *Server) registerGenerate(mux *http.ServeMux, cfg GenConfig) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(generatePageHTML))
 	})
+	mux.HandleFunc("/edit", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(editPageHTML))
+	})
 }
 
 func (s *Server) generateStart(w http.ResponseWriter, r *http.Request, gs *genState) {
